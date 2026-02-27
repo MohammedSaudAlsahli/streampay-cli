@@ -1,0 +1,19 @@
+{
+  "consumer_id": "CONSUMER_ID_HERE",
+  "items": [
+    {
+      "product_id": "PRODUCT_ID_HERE",
+      "quantity": 1
+    }
+  ],
+  "billing_cycle": "monthly",
+  "start_date": "2024-03-01",
+  "auto_renew": true,
+  "payment_method": "card",
+  "coupons": [],
+  "description": "Premium subscription plan",
+  "metadata": {
+    "source": "web",
+    "campaign": "spring2024"
+  }
+}

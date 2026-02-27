@@ -1,0 +1,16 @@
+{
+  "name": "Ahmed Al-Rashid",
+  "email": "ahmed@example.com",
+  "phone": "+966501234567",
+  "address": {
+    "street": "King Fahd Road",
+    "city": "Riyadh",
+    "state": "Riyadh Region",
+    "postal_code": "12345",
+    "country": "SA"
+  },
+  "metadata": {
+    "customer_type": "premium",
+    "referral_code": "FRIEND2024"
+  }
+}
