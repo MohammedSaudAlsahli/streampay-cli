@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { table } from 'table';
+import Table from 'cli-table3';
 
 export interface OutputOptions {
   format?: 'json' | 'table' | 'pretty';
@@ -123,12 +123,22 @@ export class OutputFormatter {
     }
     const keys = Array.from(keySet);
 
-    const headerRow = keys.map((k) => chalk.cyan.bold(k));
-    const bodyRows = items.map((item) =>
-      keys.map((k) => this.formatValue(item[k])),
-    );
+    // Build cli-table3 instance with cyan bold headers
+    const t = new Table({
+      head: keys.map((k) => chalk.cyan.bold(k)),
+      style: {
+        head: [],    // colors applied manually above
+        border: ['gray'],
+      },
+    });
 
-    console.log(table([headerRow, ...bodyRows]));
+    // Add rows with meaningful colors per value type/semantic
+    for (const item of items) {
+      const row = keys.map((k) => this.formatValueColored(item[k], k));
+      t.push(row);
+    }
+
+    console.log(t.toString());
 
     if (pagination) {
       this.printPaginationInfo(pagination);
@@ -149,6 +159,118 @@ export class OutputFormatter {
       return chalk.gray('[Object]');
     }
     return String(value);
+  }
+
+  /**
+   * Format a cell value with meaningful colors based on field name semantics
+   * and value type. Used exclusively by outputTable().
+   */
+  static formatValueColored(value: any, key: string = ''): string {
+    if (value === null || value === undefined) {
+      return chalk.gray('—');
+    }
+
+    // Boolean: green check / red cross
+    if (typeof value === 'boolean') {
+      return value ? chalk.green('✓ true') : chalk.red('✗ false');
+    }
+
+    // Arrays
+    if (Array.isArray(value)) {
+      if (value.length === 0) return chalk.gray('[]');
+      // Simple scalar arrays (strings/numbers) — join them
+      if (typeof value[0] !== 'object') {
+        return chalk.white(value.join(', '));
+      }
+      return chalk.gray(`[${value.length} items]`);
+    }
+
+    // Nested objects
+    if (typeof value === 'object') {
+      return chalk.gray('[Object]');
+    }
+
+    const str = String(value);
+    const lowerKey = key.toLowerCase();
+
+    // --- Semantic coloring by field name ---
+
+    // Status fields
+    if (lowerKey === 'status' || lowerKey.endsWith('_status')) {
+      const upper = str.toUpperCase();
+      if (['ACTIVE', 'PAID', 'COMPLETED', 'SUCCESS', 'SUCCEEDED', 'UNFROZEN'].includes(upper)) {
+        return chalk.green(str);
+      }
+      if (['INACTIVE', 'CANCELLED', 'CANCELED', 'FAILED', 'VOIDED', 'REJECTED'].includes(upper)) {
+        return chalk.red(str);
+      }
+      if (['PENDING', 'FROZEN', 'PROCESSING', 'DRAFT'].includes(upper)) {
+        return chalk.yellow(str);
+      }
+      return chalk.white(str);
+    }
+
+    // Boolean-like string fields
+    if (lowerKey.startsWith('is_') || lowerKey.startsWith('has_') || lowerKey === 'active') {
+      if (str === 'true') return chalk.green('✓ true');
+      if (str === 'false') return chalk.red('✗ false');
+    }
+
+    // Amount / price / monetary fields — magenta
+    if (
+      lowerKey === 'amount' ||
+      lowerKey.includes('_amount') ||
+      lowerKey.includes('price') ||
+      lowerKey.includes('_value') ||
+      lowerKey === 'discount_value' ||
+      lowerKey === 'total'
+    ) {
+      return chalk.magenta(str);
+    }
+
+    // Currency fields — yellow
+    if (lowerKey === 'currency' || lowerKey.endsWith('_currency')) {
+      return chalk.yellow(str);
+    }
+
+    // ID fields — dim white (not important to highlight)
+    if (lowerKey === 'id' || lowerKey.endsWith('_id')) {
+      return chalk.white.dim(str);
+    }
+
+    // Date/time fields — blue
+    if (
+      lowerKey.includes('_at') ||
+      lowerKey.includes('_date') ||
+      lowerKey === 'valid_until' ||
+      lowerKey === 'created_at' ||
+      lowerKey === 'updated_at'
+    ) {
+      return chalk.blue(str);
+    }
+
+    // Name fields — bright white
+    if (lowerKey === 'name' || lowerKey.endsWith('_name')) {
+      return chalk.white.bold(str);
+    }
+
+    // Email fields — cyan
+    if (lowerKey === 'email' || lowerKey.includes('email')) {
+      return chalk.cyan(str);
+    }
+
+    // Phone fields — cyan
+    if (lowerKey === 'phone' || lowerKey.includes('phone')) {
+      return chalk.cyan(str);
+    }
+
+    // URL fields — underline blue
+    if (lowerKey.includes('url') || lowerKey.includes('link')) {
+      return chalk.blue.underline(str);
+    }
+
+    // Default
+    return chalk.white(str);
   }
 
   static success(message: string) {

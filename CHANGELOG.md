@@ -1,5 +1,25 @@
 # Changelog
 
+## Version 1.2.0 — Meaningful Table Colors (Feb 28, 2026)
+
+### Changed
+- **Replaced `table` dependency with `cli-table3`** for richer, bordered table output
+- **Added semantic color coding in table view** — every cell is now colored based on its field name and value:
+  - `status` fields: green (active/paid/completed), red (inactive/cancelled/failed), yellow (pending/frozen)
+  - `is_*` / `has_*` boolean fields: green ✓ / red ✗
+  - Amount/price/monetary fields: magenta
+  - Currency fields: yellow
+  - ID fields: dim white
+  - Date/time fields: blue
+  - Name fields: bold white
+  - Email/phone fields: cyan
+  - URL fields: underlined blue
+  - Boolean values: green ✓ true / red ✗ false
+- **Column headers** remain cyan bold
+- **Table borders** are gray for a clean look
+
+---
+
 ## Version 1.1.0 — API Accuracy & Command Fixes (Feb 28, 2026)
 
 ### consumers command — Fixed & Expanded
