@@ -1,15 +1,76 @@
 # Changelog
 
+## Version 1.1.0 — API Accuracy & Command Fixes (Feb 28, 2026)
+
+### consumers command — Fixed & Expanded
+- **Fixed**: `--phone` renamed to `--phone-number` (correct API field name)
+- **Fixed**: `--email` is now optional (was incorrectly required; only `name` is required)
+- **Added**: `--external-id` flag → `external_id`
+- **Added**: `--iban` flag → `iban` (max 34 chars)
+- **Added**: `--alias` flag → `alias`
+- **Added**: `--comment` flag → `comment`
+- **Added**: `--preferred-language` flag → `preferred_language` (validated: `AR` or `EN`)
+- **Added**: `--communication-methods` flag → `communication_methods` (comma-separated, validated: `WHATSAPP`, `EMAIL`, `SMS`)
+- **Added**: `--data <json>` flag on `create` and `update` for raw JSON body input
+- **Fixed**: `delete` no longer calls `OutputFormatter.output()` (API returns empty `{}`)
+- **Added**: `get` now shows success message on retrieval
+- **Added**: `list` now shows info message before fetching
+
+### checkout command — Complete Rewrite
+- **Removed**: `--amount` flag (does not exist in the API)
+- **Removed**: `--redirect-url` flag (replaced by two separate flags)
+- **Removed**: `--metadata` flag (wrong field name)
+- **Fixed**: `--currency` is now optional with default `SAR` (was incorrectly required)
+- **Added**: `--name` flag (required — was missing entirely)
+- **Added**: `--items <json>` flag (required — JSON array of product items)
+- **Added**: `--coupons <uuids>` flag (comma-separated coupon UUIDs)
+- **Added**: `--max-number-of-payments <n>` flag
+- **Added**: `--valid-until <datetime>` flag
+- **Added**: `--confirmation-message <msg>` flag
+- **Added**: `--payment-methods <json>` flag (e.g. `{"visa":true,"mastercard":true}`)
+- **Added**: `--success-redirect-url <url>` flag
+- **Added**: `--failure-redirect-url <url>` flag
+- **Added**: `--organization-consumer-id <uuid>` flag
+- **Added**: `--custom-metadata <json>` flag (was incorrectly named `--metadata`)
+- **Added**: `--contact-information-type <PHONE|EMAIL>` flag
+- **Added**: `--data <json>` flag on `create` for raw JSON body input
+- **Fixed**: `activate` status value corrected from `'active'` → `'ACTIVE'` (API requires uppercase)
+- **Fixed**: `deactivate` status value corrected from `'inactive'` → `'INACTIVE'`
+- **Added**: `--deactivate-message <msg>` flag on `deactivate`
+- **Added**: New `update-status` subcommand with `--status` (ACTIVE|INACTIVE|COMPLETED), `--deactivate-message`, `--data`
+- **Added**: `get` now shows success message on retrieval
+- **Added**: `list` now shows info message before fetching
+- **Added**: `list` new filter flags: `--statuses`, `--from-date`, `--to-date`, `--from-price`, `--to-price`, `--product-ids`, `--currencies`
+- **Removed**: `list --search` flag (does not exist in the API)
+
+### coupons command — Fixed & Expanded
+- **Fixed**: Removed nonexistent fields (`--code`, `--discount-type`, `--max-uses`, `--expires-at`, `--metadata`)
+- **Fixed**: Correct fields: `--name`, `--discount-value`, `--is-percentage`, `--currency`, `--is-active`
+- **Added**: `--data <json>` flag on `create` and `update`
+- **Fixed**: `delete` no longer calls `OutputFormatter.output()` (API returns empty `{}`)
+- **Added**: `list` new filter flags: `--active`, `--is-percentage`
+- **Fixed**: `list --search` now correctly maps to `search_term` query param
+
+### client.ts — 422 Validation Error Handling
+- **Added**: Proper handling of FastAPI/Pydantic `{ detail: [{ loc, msg, type }] }` 422 error format
+- **Fixed**: Users now see field-level validation messages instead of generic "Request failed with status code 422"
+
+### utils.ts — Pagination Field Names Fixed
+- **Fixed**: `PaginationInfo` now uses real API field names: `current_page`, `max_page`, `total_count`, `has_next_page`, `has_previous_page`
+- **Fixed**: `printPaginationInfo` now displays correct pagination data with `← prev` / `next →` navigation hints
+
+---
+
 ## Version 1.0.0 - Initial Release
 
 ### Features
-- ✅ Complete CLI tool for Stream Pay API
-- ✅ Support for all API operations (consumers, payments, subscriptions, invoices, products, coupons, payment links)
-- ✅ Multiple output formats (JSON, Table, Pretty)
-- ✅ Flexible configuration system (env vars, config file, CLI flags)
-- ✅ Branch scoping support
-- ✅ Pagination, filtering, and sorting
-- ✅ AI-agent optimized with structured JSON output
+- Complete CLI tool for Stream Pay API
+- Support for all API operations (consumers, payments, subscriptions, invoices, products, coupons, payment links)
+- Multiple output formats (JSON, Table, Pretty)
+- Flexible configuration system (env vars, config file, CLI flags)
+- Branch scoping support
+- Pagination, filtering, and sorting
+- AI-agent optimized with structured JSON output
 
 ### Updates Based on Official Documentation
 

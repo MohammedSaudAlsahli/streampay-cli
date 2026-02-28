@@ -3,6 +3,33 @@ import { StreamAppClient } from '../client';
 import { ConfigManager } from '../config';
 import { OutputFormatter, parseJson } from '../utils';
 
+const VALID_CURRENCIES = ['SAR', 'USD', 'EUR', 'GBP', 'AED', 'BHD', 'KWD', 'OMR', 'QAR'];
+
+const parseBool = (val: string): boolean => {
+  if (val === 'true' || val === '1') return true;
+  if (val === 'false' || val === '0') return false;
+  throw new Error(`Invalid boolean value: "${val}". Use true or false.`);
+};
+
+const DISCOUNT_VALUE_REGEX = /^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$/;
+
+const parseDiscountValue = (val: string): number | string => {
+  if (!DISCOUNT_VALUE_REGEX.test(val)) {
+    throw new Error(
+      `Invalid discount value: "${val}". Must be a number >= 0 (e.g. 10, 10.5, 0.25).`,
+    );
+  }
+  // If it starts with a sign character, keep as string (API accepts string form)
+  if (val.startsWith('+') || val.startsWith('-')) {
+    return val;
+  }
+  const num = parseFloat(val);
+  if (num < 0) {
+    throw new Error(`Discount value must be >= 0, got: ${val}`);
+  }
+  return num;
+};
+
 export function createCouponsCommands(): Command {
   const coupons = new Command('coupons')
     .description('Manage coupons');
@@ -11,12 +38,12 @@ export function createCouponsCommands(): Command {
   coupons
     .command('create')
     .description('Create a new coupon')
-    .requiredOption('--code <code>', 'Coupon code')
-    .requiredOption('--discount-type <type>', 'Discount type (percentage|fixed)')
-    .requiredOption('--discount-value <value>', 'Discount value', parseFloat)
-    .option('--max-uses <number>', 'Maximum number of uses', parseInt)
-    .option('--expires-at <datetime>', 'Expiration date/time (ISO 8601)')
-    .option('--metadata <json>', 'Metadata as JSON string')
+    .option('--name <name>', 'Coupon name (1–80 characters)')
+    .option('--discount-value <value>', 'Discount value >= 0 — number or numeric string (e.g. 10, 10.5, 0.25)', parseDiscountValue)
+    .option('--is-percentage <bool>', 'true = percentage discount, false = fixed amount (default: false)', parseBool)
+    .option('--currency <currency>', `Currency code — required for fixed discounts (${VALID_CURRENCIES.join('|')})`)
+    .option('--is-active <bool>', 'Whether the coupon is active (default: true)', parseBool)
+    .option('--data <json>', 'Raw JSON body — overrides all other flags')
     .option('--format <format>', 'Output format (json|table|pretty)', 'pretty')
     .action(async (options) => {
       try {
@@ -26,20 +53,41 @@ export function createCouponsCommands(): Command {
           ...config,
         });
 
-        const data: any = {
-          code: options.code,
-          discount_type: options.discountType,
-          discount_value: options.discountValue,
-        };
+        let data: any;
 
-        if (options.maxUses !== undefined) {
-          data.max_uses = options.maxUses;
-        }
-        if (options.expiresAt) {
-          data.expires_at = options.expiresAt;
-        }
-        if (options.metadata) {
-          data.metadata = parseJson(options.metadata);
+        if (options.data) {
+          data = parseJson(options.data);
+        } else {
+          if (!options.name) {
+            throw new Error('--name is required when --data is not provided');
+          }
+          if (options.discountValue === undefined) {
+            throw new Error('--discount-value is required when --data is not provided');
+          }
+
+          const isPercentage: boolean = options.isPercentage ?? false;
+
+          if (isPercentage && options.currency) {
+            OutputFormatter.warning('--currency is ignored for percentage coupons and will not be sent');
+          }
+
+          if (!isPercentage && !options.currency) {
+            OutputFormatter.warning('--currency is recommended for fixed-amount coupons');
+          }
+
+          data = {
+            name: options.name,
+            discount_value: options.discountValue,
+            is_percentage: isPercentage,
+          };
+
+          if (!isPercentage && options.currency) {
+            data.currency = options.currency;
+          }
+
+          if (options.isActive !== undefined) {
+            data.is_active = options.isActive;
+          }
         }
 
         const result = await client.createCoupon(data);
@@ -66,6 +114,7 @@ export function createCouponsCommands(): Command {
         });
 
         const result = await client.getCoupon(id);
+        OutputFormatter.success('Coupon retrieved successfully');
         OutputFormatter.output(result, { format: options.format });
       } catch (error) {
         OutputFormatter.error('Failed to get coupon', error);
@@ -77,11 +126,13 @@ export function createCouponsCommands(): Command {
   coupons
     .command('list')
     .description('List all coupons')
-    .option('--limit <number>', 'Number of items per page', parseInt)
-    .option('--page <number>', 'Page number', parseInt)
+    .option('--page <number>', 'Page number (min 1)', parseInt)
+    .option('--limit <number>', 'Items per page (min 1, max 100)', parseInt)
+    .option('--search <term>', 'Search by coupon name')
+    .option('--active <bool>', 'Filter by active status (true|false)', parseBool)
+    .option('--is-percentage <bool>', 'Filter by discount type (true|false)', parseBool)
     .option('--sort-field <field>', 'Field to sort by')
     .option('--sort-direction <direction>', 'Sort direction (asc|desc)')
-    .option('--search <query>', 'Search query')
     .option('--format <format>', 'Output format (json|table|pretty)', 'table')
     .action(async (options) => {
       try {
@@ -91,13 +142,16 @@ export function createCouponsCommands(): Command {
           ...config,
         });
 
-        const params: any = {};
-        if (options.limit) params.limit = options.limit;
-        if (options.page) params.page = options.page;
+        const params: Record<string, any> = {};
+        if (options.page !== undefined) params.page = options.page;
+        if (options.limit !== undefined) params.limit = options.limit;
+        if (options.search) params.search_term = options.search;
+        if (options.active !== undefined) params.active = options.active;
+        if (options.isPercentage !== undefined) params.is_percentage = options.isPercentage;
         if (options.sortField) params.sort_field = options.sortField;
         if (options.sortDirection) params.sort_direction = options.sortDirection;
-        if (options.search) params.search = options.search;
 
+        OutputFormatter.info('Listing coupons...');
         const result = await client.listCoupons(params);
         OutputFormatter.output(result, { format: options.format });
       } catch (error) {
@@ -111,12 +165,12 @@ export function createCouponsCommands(): Command {
     .command('update')
     .description('Update a coupon')
     .argument('<id>', 'Coupon ID')
-    .option('--code <code>', 'Coupon code')
-    .option('--discount-type <type>', 'Discount type (percentage|fixed)')
-    .option('--discount-value <value>', 'Discount value', parseFloat)
-    .option('--max-uses <number>', 'Maximum number of uses', parseInt)
-    .option('--expires-at <datetime>', 'Expiration date/time (ISO 8601)')
-    .option('--metadata <json>', 'Metadata as JSON string')
+    .option('--name <name>', 'Coupon name (1–80 characters)')
+    .option('--discount-value <value>', 'Discount value >= 0 — number or numeric string (e.g. 10, 10.5, 0.25)', parseDiscountValue)
+    .option('--is-percentage <bool>', 'true = percentage discount, false = fixed amount', parseBool)
+    .option('--currency <currency>', `Currency code (${VALID_CURRENCIES.join('|')})`)
+    .option('--is-active <bool>', 'Whether the coupon is active', parseBool)
+    .option('--data <json>', 'Raw JSON body — overrides all other flags')
     .option('--format <format>', 'Output format (json|table|pretty)', 'pretty')
     .action(async (id, options) => {
       try {
@@ -126,36 +180,38 @@ export function createCouponsCommands(): Command {
           ...config,
         });
 
-        const data: any = {};
-        let hasUpdates = false;
+        let data: any;
 
-        if (options.code !== undefined) {
-          data.code = options.code;
-          hasUpdates = true;
-        }
-        if (options.discountType !== undefined) {
-          data.discount_type = options.discountType;
-          hasUpdates = true;
-        }
-        if (options.discountValue !== undefined) {
-          data.discount_value = options.discountValue;
-          hasUpdates = true;
-        }
-        if (options.maxUses !== undefined) {
-          data.max_uses = options.maxUses;
-          hasUpdates = true;
-        }
-        if (options.expiresAt !== undefined) {
-          data.expires_at = options.expiresAt;
-          hasUpdates = true;
-        }
-        if (options.metadata !== undefined) {
-          data.metadata = parseJson(options.metadata);
-          hasUpdates = true;
-        }
+        if (options.data) {
+          data = parseJson(options.data);
+        } else {
+          data = {};
+          let hasUpdates = false;
 
-        if (!hasUpdates) {
-          throw new Error('At least one field must be provided to update');
+          if (options.name !== undefined) {
+            data.name = options.name;
+            hasUpdates = true;
+          }
+          if (options.discountValue !== undefined) {
+            data.discount_value = options.discountValue;
+            hasUpdates = true;
+          }
+          if (options.isPercentage !== undefined) {
+            data.is_percentage = options.isPercentage;
+            hasUpdates = true;
+          }
+          if (options.currency !== undefined) {
+            data.currency = options.currency;
+            hasUpdates = true;
+          }
+          if (options.isActive !== undefined) {
+            data.is_active = options.isActive;
+            hasUpdates = true;
+          }
+
+          if (!hasUpdates) {
+            throw new Error('At least one field must be provided to update');
+          }
         }
 
         const result = await client.updateCoupon(id, data);
@@ -172,8 +228,7 @@ export function createCouponsCommands(): Command {
     .command('delete')
     .description('Delete a coupon')
     .argument('<id>', 'Coupon ID')
-    .option('--format <format>', 'Output format (json|table|pretty)', 'pretty')
-    .action(async (id, options) => {
+    .action(async (id) => {
       try {
         const config = ConfigManager.getConfig();
         const client = new StreamAppClient({
@@ -181,9 +236,8 @@ export function createCouponsCommands(): Command {
           ...config,
         });
 
-        const result = await client.deleteCoupon(id);
+        await client.deleteCoupon(id);
         OutputFormatter.success('Coupon deleted successfully');
-        OutputFormatter.output(result, { format: options.format });
       } catch (error) {
         OutputFormatter.error('Failed to delete coupon', error);
         process.exit(1);

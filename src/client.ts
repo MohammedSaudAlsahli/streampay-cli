@@ -27,6 +27,13 @@ interface ApiErrorBody {
     message?: string;
     additional_info?: any;
   };
+  detail?: Array<{
+    loc: (string | number)[];
+    msg: string;
+    type: string;
+    input?: any;
+    ctx?: Record<string, any>;
+  }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -113,6 +120,21 @@ export class StreamAppClient {
         if (error.response) {
           const data = error.response.data;
           const status = error.response.status;
+
+          // Handle 422 validation errors: { detail: [{ loc, msg, type }] }
+          if (Array.isArray(data?.detail) && data.detail.length > 0) {
+            const messages = data.detail.map((d: any) => {
+              const field = Array.isArray(d.loc) ? d.loc.join(' → ') : String(d.loc);
+              return `${field}: ${d.msg}`;
+            }).join('; ');
+            throw new StreamApiError(
+              status,
+              'VALIDATION_ERROR',
+              messages,
+              data.detail,
+            );
+          }
+
           const apiError = data?.error;
 
           throw new StreamApiError(

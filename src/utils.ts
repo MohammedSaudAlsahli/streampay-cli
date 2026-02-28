@@ -13,10 +13,17 @@ interface StreamApiErrorBody {
 }
 
 interface PaginationInfo {
-  page?: number;
+  // Real API fields
+  current_page?: number;
+  max_page?: number;
+  total_count?: number;
   limit?: number;
-  total?: number;
+  has_next_page?: boolean;
+  has_previous_page?: boolean;
+  // Legacy/fallback fields (keep for compatibility)
+  page?: number;
   total_pages?: number;
+  total?: number;
   [key: string]: any;
 }
 
@@ -287,18 +294,30 @@ export class OutputFormatter {
 
   private static printPaginationInfo(pagination: PaginationInfo) {
     const parts: string[] = [];
-    if (pagination.page !== undefined) {
-      parts.push(`Page ${pagination.page}`);
+
+    const currentPage = pagination.current_page ?? pagination.page;
+    const maxPage = pagination.max_page ?? pagination.total_pages;
+    const totalCount = pagination.total_count ?? pagination.total;
+
+    if (currentPage !== undefined) {
+      parts.push(`Page ${currentPage}`);
     }
-    if (pagination.total_pages !== undefined) {
-      parts.push(`of ${pagination.total_pages}`);
+    if (maxPage !== undefined) {
+      parts.push(`of ${maxPage}`);
     }
-    if (pagination.total !== undefined) {
-      parts.push(`(${pagination.total} total)`);
+    if (totalCount !== undefined) {
+      parts.push(`(${totalCount} total)`);
     }
     if (pagination.limit !== undefined) {
       parts.push(`| ${pagination.limit} per page`);
     }
+    if (pagination.has_next_page !== undefined || pagination.has_previous_page !== undefined) {
+      const nav: string[] = [];
+      if (pagination.has_previous_page) nav.push('← prev');
+      if (pagination.has_next_page) nav.push('next →');
+      if (nav.length > 0) parts.push(`[${nav.join(' ')}]`);
+    }
+
     if (parts.length > 0) {
       console.log(chalk.gray(`  ${parts.join(' ')}`));
     }

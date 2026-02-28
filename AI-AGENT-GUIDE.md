@@ -13,8 +13,8 @@ The Stream Pay CLI is designed to be used by AI agents with structured JSON outp
 For machine-readable output, always append `--format json`:
 
 ```bash
-streampay consumer list --format json
-streampay payment get PAYMENT_ID --format json
+streampay consumers list --format json
+streampay payments get PAYMENT_ID --format json
 ```
 
 ### 2. Error Handling
@@ -26,7 +26,7 @@ The CLI returns:
 
 Example error handling in bash:
 ```bash
-if result=$(streampay payment get INVALID_ID --format json 2>&1); then
+if result=$(streampay payments get INVALID_ID --format json 2>&1); then
     echo "Success: $result"
 else
     echo "Error occurred: $result"
@@ -46,7 +46,7 @@ streampay config set --api-key YOUR_API_KEY
 export STREAMPAY_API_KEY=your_api_key
 
 # Option 3: Pass directly in command
-streampay consumer list --api-key YOUR_KEY --format json
+streampay consumers list --api-key YOUR_KEY --format json
 ```
 
 ## Common AI Agent Workflows
@@ -55,79 +55,51 @@ streampay consumer list --api-key YOUR_KEY --format json
 
 ```bash
 # Step 1: Create consumer
-consumer_response=$(streampay consumer create --data '{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "phone": "+966501234567"
-}' --format json)
-
+consumer_response=$(streampay consumers create \
+  --name "John Doe" \
+  --email "john@example.com" \
+  --phone-number "+966501234567" \
+  --format json)
 consumer_id=$(echo "$consumer_response" | jq -r '.id')
 
-# Step 2: Create product
-product_response=$(streampay product create --data '{
-  "name": "Premium Plan",
-  "price": 99.99,
-  "currency": "SAR",
-  "billing_cycle": "monthly"
-}' --format json)
-
+# Step 2: Create product (use --data for complex objects)
+product_response=$(streampay products create \
+  --data '{"name":"Premium Plan","prices":[{"amount":"99.99","currency":"SAR","recurring_interval":"MONTH"}]}' \
+  --format json)
 product_id=$(echo "$product_response" | jq -r '.id')
 
 # Step 3: Create subscription
-subscription_response=$(streampay subscription create --data '{
-  "consumer_id": "'$consumer_id'",
-  "items": [
-    {
-      "product_id": "'$product_id'",
-      "quantity": 1
-    }
-  ],
-  "auto_renew": true
-}' --format json)
-
-echo "Subscription created: $subscription_response"
+streampay subscriptions create \
+  --data "{\"consumer_id\":\"$consumer_id\",\"items\":[{\"product_id\":\"$product_id\",\"quantity\":1}]}" \
+  --format json
 ```
 
-### Workflow 2: Process Pending Invoices
+### Workflow 2: Create a Payment Link
 
 ```bash
-# Get all pending invoices
-pending_invoices=$(streampay invoice list \
-  --filter status=pending \
+# Create a payment link for a product
+link_response=$(streampay checkout create \
+  --name "Premium Plan Checkout" \
+  --items "[{\"product_id\":\"$product_id\",\"quantity\":1}]" \
+  --currency SAR \
+  --success-redirect-url "https://example.com/success" \
+  --failure-redirect-url "https://example.com/failure" \
   --format json)
 
-# Extract invoice IDs
-invoice_ids=$(echo "$pending_invoices" | jq -r '.data[] | .id')
-
-# Process each invoice
-for invoice_id in $invoice_ids; do
-    echo "Processing invoice: $invoice_id"
-    
-    # Get invoice details
-    invoice=$(streampay invoice get "$invoice_id" --format json)
-    
-    # Update status or take action
-    streampay invoice update "$invoice_id" \
-      --data '{"status": "processing"}' \
-      --format json
-done
+link_url=$(echo "$link_response" | jq -r '.url')
+echo "Share this link: $link_url"
 ```
 
 ### Workflow 3: Monitor Failed Payments
 
 ```bash
-# Get failed payments from last 24 hours
-current_time=$(date +%s)
-one_day_ago=$((current_time - 86400))
+# Get failed payments and extract details
+payments=$(streampay payments list --format json)
 
-payments=$(streampay payment list \
-  --filter status=failed \
-  --format json)
-
-# Filter by date and extract details
-echo "$payments" | jq --arg since "$one_day_ago" '
+# Filter by status and extract details
+echo "$payments" | jq '
   .data[] |
-  select(.created_at | tonumber > ($since | tonumber)) |
+  select(.status == "failed") |
   {
     id: .id,
     amount: .amount,
@@ -142,16 +114,13 @@ echo "$payments" | jq --arg since "$one_day_ago" '
 # Monthly revenue report
 current_month=$(date +%Y-%m)
 
-# Get all successful payments for the month
-payments=$(streampay payment list \
-  --filter status=paid \
-  --filter created_at_month="$current_month" \
-  --format json)
+# Get all payments and filter locally
+payments=$(streampay payments list --format json)
 
 # Calculate total revenue
 total_revenue=$(echo "$payments" | jq '[.data[] | .amount] | add')
 
-echo "Total revenue for $current_month: $total_revenue SAR"
+echo "Total revenue: $total_revenue SAR"
 
 # Get breakdown by product
 echo "$payments" | jq -r '
@@ -169,80 +138,85 @@ echo "$payments" | jq -r '
 ### Consumer Operations
 
 ```bash
-# CREATE
-streampay consumer create --data '{"name":"...","email":"..."}' --format json
-
-# READ
-streampay consumer get CONSUMER_ID --format json
-streampay consumer list --format json
-
-# UPDATE
-streampay consumer update CONSUMER_ID --data '{"name":"..."}' --format json
-
-# DELETE
-streampay consumer delete CONSUMER_ID --format json
+# CONSUMERS
+streampay consumers create --name "John" --email "john@example.com" --format json
+streampay consumers create --data '{"name":"John","email":"john@example.com"}' --format json
+streampay consumers get CONSUMER_ID --format json
+streampay consumers list --page 1 --limit 50 --format json
+streampay consumers update CONSUMER_ID --name "New Name" --format json
+streampay consumers update CONSUMER_ID --data '{"name":"New Name"}' --format json
+streampay consumers delete CONSUMER_ID
 ```
 
 ### Payment Operations
 
 ```bash
-# READ
-streampay payment get PAYMENT_ID --format json
-streampay payment list --filter status=pending --format json
-
-# ACTIONS
-streampay payment mark-paid PAYMENT_ID --format json
-streampay payment refund PAYMENT_ID --format json
-streampay payment auto-charge CONSUMER_ID --data '{"amount":100}' --format json
+# PAYMENTS
+streampay payments get PAYMENT_ID --format json
+streampay payments list --page 1 --limit 50 --format json
+streampay payments mark-paid PAYMENT_ID --format json
+streampay payments refund PAYMENT_ID --format json
+streampay payments auto-charge PAYMENT_ID --format json
 ```
 
 ### Subscription Operations
 
 ```bash
-# CREATE
-streampay subscription create --file subscription.json --format json
-
-# READ
-streampay subscription get SUBSCRIPTION_ID --format json
-streampay subscription list --filter status=active --format json
-
-# UPDATE
-streampay subscription update SUBSCRIPTION_ID --data '{}' --format json
-
-# ACTIONS
-streampay subscription cancel SUBSCRIPTION_ID --format json
-streampay subscription freeze SUBSCRIPTION_ID --data '{"start_date":"..."}' --format json
+# SUBSCRIPTIONS
+streampay subscriptions create --data '{"consumer_id":"...","items":[{"product_id":"..."}]}' --format json
+streampay subscriptions get SUBSCRIPTION_ID --format json
+streampay subscriptions list --format json
+streampay subscriptions update SUBSCRIPTION_ID --data '{}' --format json
+streampay subscriptions cancel SUBSCRIPTION_ID --format json
+streampay subscriptions freeze SUBSCRIPTION_ID --data '{"start_date":"...","end_date":"..."}' --format json
+streampay subscriptions unfreeze SUBSCRIPTION_ID --format json
 ```
 
 ### Invoice Operations
 
 ```bash
-# CREATE
-streampay invoice create --data '{}' --format json
-
-# READ
-streampay invoice get INVOICE_ID --format json
-streampay invoice list --format json
-
-# UPDATE
-streampay invoice update INVOICE_ID --data '{}' --format json
+# INVOICES
+streampay invoices create --data '{}' --format json
+streampay invoices get INVOICE_ID --format json
+streampay invoices list --format json
+streampay invoices update INVOICE_ID --data '{}' --format json
+streampay invoices send INVOICE_ID --format json
 ```
 
 ### Product Operations
 
 ```bash
-# CREATE
-streampay product create --data '{"name":"...","price":99.99}' --format json
+# PRODUCTS
+streampay products create --data '{"name":"Pro Plan"}' --format json
+streampay products get PRODUCT_ID --format json
+streampay products list --format json
+streampay products update PRODUCT_ID --data '{}' --format json
+streampay products delete PRODUCT_ID
+```
 
-# READ
-streampay product get PRODUCT_ID --format json
-streampay product list --format json
+### Coupon Operations
 
-# UPDATE
-streampay product update PRODUCT_ID --data '{}' --format json
+```bash
+# COUPONS
+streampay coupons create --name "SAVE10" --discount-value 10 --is-percentage true --format json
+streampay coupons create --data '{"name":"SAVE10","discount_value":10,"is_percentage":true}' --format json
+streampay coupons get COUPON_ID --format json
+streampay coupons list --active true --format json
+streampay coupons update COUPON_ID --is-active false --format json
+streampay coupons delete COUPON_ID
+```
 
-# DELETE
-streampay product delete PRODUCT_ID --format json
+### Checkout (Payment Links) Operations
+
+```bash
+# CHECKOUT (PAYMENT LINKS)
+streampay checkout create --name "Premium Plan" --items '[{"product_id":"PRODUCT_UUID","quantity":1}]' --format json
+streampay checkout create --data '{"name":"Plan","items":[{"product_id":"PRODUCT_UUID"}]}' --format json
+streampay checkout get LINK_ID --format json
+streampay checkout list --statuses ACTIVE --format json
+streampay checkout activate LINK_ID --format json
+streampay checkout deactivate LINK_ID --deactivate-message "Temporarily closed" --format json
+streampay checkout update-status LINK_ID --status COMPLETED --format json
 ```
 
 ## Data Parsing with jq
@@ -251,19 +225,19 @@ The CLI outputs valid JSON that can be parsed with `jq`:
 
 ```bash
 # Extract specific fields
-streampay consumer list --format json | jq '.data[] | {id, email}'
+streampay consumers list --format json | jq '.data[] | {id, email}'
 
 # Filter results
-streampay payment list --format json | jq '.data[] | select(.amount > 100)'
+streampay payments list --format json | jq '.data[] | select(.amount > 100)'
 
 # Count results
-streampay invoice list --format json | jq '.data | length'
+streampay invoices list --format json | jq '.data | length'
 
 # Get specific value
-consumer_id=$(streampay consumer get ID --format json | jq -r '.id')
+consumer_id=$(streampay consumers get ID --format json | jq -r '.id')
 
 # Complex transformations
-streampay subscription list --format json | jq '
+streampay subscriptions list --format json | jq '
   .data |
   group_by(.status) |
   map({
@@ -277,7 +251,7 @@ streampay subscription list --format json | jq '
 ### 1. Check Exit Codes
 
 ```bash
-if streampay payment get PAYMENT_ID --format json > payment.json; then
+if streampay payments get PAYMENT_ID --format json > payment.json; then
     echo "Success"
 else
     echo "Failed to get payment"
@@ -288,7 +262,7 @@ fi
 ### 2. Capture and Parse Errors
 
 ```bash
-error_output=$(streampay consumer create --data '{}' --format json 2>&1)
+error_output=$(streampay consumers create --data '{}' --format json 2>&1)
 if [ $? -ne 0 ]; then
     error_message=$(echo "$error_output" | jq -r '.error // .message // "Unknown error"')
     echo "Error: $error_message"
@@ -299,8 +273,8 @@ fi
 
 ```bash
 # Check if consumer exists before creating subscription
-if streampay consumer get "$consumer_id" --format json > /dev/null 2>&1; then
-    streampay subscription create --data "{\"consumer_id\":\"$consumer_id\"}" --format json
+if streampay consumers get "$consumer_id" --format json > /dev/null 2>&1; then
+    streampay subscriptions create --data "{\"consumer_id\":\"$consumer_id\"}" --format json
 else
     echo "Consumer not found: $consumer_id"
     exit 1
@@ -312,32 +286,27 @@ fi
 ### 1. Use Pagination for Large Datasets
 
 ```bash
-# Process in batches
 page=1
 while true; do
-    result=$(streampay consumer list --page $page --per-page 100 --format json)
-    
-    # Check if we got results
+    result=$(streampay consumers list --page $page --limit 100 --format json)
     count=$(echo "$result" | jq '.data | length')
     if [ "$count" -eq 0 ]; then
         break
     fi
-    
-    # Process results
     echo "$result" | jq '.data[] | .email'
-    
+    has_next=$(echo "$result" | jq '.pagination.has_next_page')
+    if [ "$has_next" != "true" ]; then
+        break
+    fi
     page=$((page + 1))
 done
 ```
 
-### 2. Use Filters to Reduce Data Transfer
+### 2. Filter with jq for Local Processing
 
 ```bash
-# Instead of getting all and filtering locally
-streampay payment list --filter status=pending --filter amount_gt=100 --format json
-
-# Not recommended (fetches everything)
-streampay payment list --format json | jq '.data[] | select(.status == "pending" and .amount > 100)'
+# Get all payments and filter locally with jq
+streampay payments list --format json | jq '.data[] | select(.status == "pending" and .amount > 100)'
 ```
 
 ## MCP Server Integration (Future)
@@ -365,7 +334,7 @@ The CLI can be wrapped as an MCP server for direct AI agent tool access. Example
 ```bash
 # Test JSON validity
 if echo '{"name":"test"}' | jq empty; then
-    streampay consumer create --data '{"name":"test"}' --format json
+    streampay consumers create --data '{"name":"test"}' --format json
 fi
 ```
 
@@ -373,7 +342,8 @@ fi
 
 ```bash
 # Keep examples for consistent testing
-streampay subscription create --file examples/subscription-create.json --format json
+cat examples/subscription-create.json
+streampay subscriptions create --data "$(cat examples/subscription-create.json)" --format json
 ```
 
 ### 3. Dry Run Pattern
@@ -384,7 +354,7 @@ data='{"name":"Test User","email":"test@example.com"}'
 echo "Would create consumer with data: $data"
 read -p "Continue? (y/n) " -n 1 -r
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    streampay consumer create --data "$data" --format json
+    streampay consumers create --data "$data" --format json
 fi
 ```
 
