@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 1.2.1 (Feb 28, 2026)
+
+### Fixed
+- **CI fix**: removed `package-lock.json` from `.gitignore` so GitHub Actions `npm ci` can find the lock file and the npm cache works correctly
+
 ## Version 1.2.0 — Meaningful Table Colors (Feb 28, 2026)
 
 ### Changed
