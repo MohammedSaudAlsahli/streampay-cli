@@ -1,6 +1,6 @@
 # StreamPay CLI
 
-Official command-line interface for the StreamPay API. A powerful, type-safe CLI tool for managing consumers, payments, subscriptions, invoices, and more.
+Unofficial command-line interface for the StreamPay API. A powerful, type-safe CLI tool for managing consumers, payments, subscriptions, invoices, and more.
 
 ## Features
 
@@ -31,7 +31,7 @@ Official command-line interface for the StreamPay API. A powerful, type-safe CLI
 Clone the repository and run the setup script:
 
 ```bash
-git clone https://github.com/streampay/streampay-cli.git
+git clone https://github.com/MohammedSaudAlsahli/streampay-cli.git
 cd streampay-cli
 bash setup.sh
 ```
@@ -46,7 +46,7 @@ The `setup.sh` script will:
 If you prefer to install manually:
 
 ```bash
-git clone https://github.com/streampay/streampay-cli.git
+git clone https://github.com/MohammedSaudAlsahli/streampay-cli.git
 cd streampay-cli
 npm install
 npm run build
@@ -76,27 +76,17 @@ You'll be prompted to enter your API key. Alternatively, set it directly:
 streampay config set --api-key YOUR_API_KEY
 ```
 
-### 2. Verify Connection
-
-```bash
-streampay whoami
-```
-
-### 3. Run Your First Commands
+### 2. Run Your First Commands
 
 ```bash
 # List all consumers
-streampay consumer list
+streampay consumers list
 
 # Get payment details
-streampay payment get PAYMENT_ID
+streampay checkout get PAYMENT_ID
 
 # Create a new product
-streampay product create --data '{
-  "name": "Premium Plan",
-  "price": 99.99,
-  "currency": "SAR"
-}'
+streampay products create -n "premium plan" -p "99.99" -c "SAR"
 ```
 
 ## Authentication
@@ -143,13 +133,11 @@ Available environment variables:
 ### Authentication & Configuration
 
 ```bash
-streampay login                           # Authenticate with API key
-streampay logout                          # Remove stored credentials
-streampay whoami                          # Display current authentication info
-streampay config set <options>            # Set configuration values
-streampay config get                      # Display current configuration
-streampay config clear                    # Clear all configuration
-streampay config path                     # Show config file location
+streampay login
+streampay login --api-key <key>        API key
+streampay login --api-secret <secret>  API secret
+streampay login --branch <branch>      Default branch
+streampay login --base-url <url>       API base URL
 ```
 
 ### Consumers
@@ -157,11 +145,11 @@ streampay config path                     # Show config file location
 Manage customer profiles:
 
 ```bash
-streampay consumer create                 # Create a new consumer
-streampay consumer get <id>               # Get consumer by ID
-streampay consumer list                   # List all consumers
-streampay consumer update <id>            # Update consumer details
-streampay consumer delete <id>            # Delete a consumer
+streampay consumers create                 # Create a new consumer
+streampay consumers get <id>               # Get consumer by ID
+streampay consumers list                   # List all consumers
+streampay consumers update <id>            # Update consumer details
+streampay consumers delete <id>            # Delete a consumer
 ```
 
 ### Payments
@@ -169,11 +157,11 @@ streampay consumer delete <id>            # Delete a consumer
 Process and manage payments:
 
 ```bash
-streampay payment get <id>                # Get payment by ID
-streampay payment list                    # List all payments
-streampay payment mark-paid <id>          # Mark payment as paid
-streampay payment refund <id>             # Refund a payment
-streampay payment auto-charge <id>        # Auto-charge a consumer
+streampay payments get <id>                # Get payment by ID
+streampay payments list                    # List all payments
+streampay payments mark-paid <id>          # Mark payment as paid
+streampay payments refund <id>             # Refund a payment
+streampay payments auto-charge <id>        # Auto-charge a consumer
 ```
 
 ### Subscriptions
@@ -181,14 +169,14 @@ streampay payment auto-charge <id>        # Auto-charge a consumer
 Handle recurring billing:
 
 ```bash
-streampay subscription create             # Create a new subscription
-streampay subscription get <id>           # Get subscription by ID
-streampay subscription list               # List all subscriptions
-streampay subscription update <id>        # Update subscription
-streampay subscription cancel <id>        # Cancel a subscription
-streampay subscription freeze <id>        # Freeze a subscription
-streampay subscription unfreeze <id>      # Unfreeze a subscription
-streampay subscription freezes <id>       # List subscription freezes
+streampay subs create             # Create a new subscription
+streampay subs get <id>           # Get subscription by ID
+streampay subs list               # List all subscriptions
+streampay subs update <id>        # Update subscription
+streampay subs cancel <id>        # Cancel a subscription
+streampay subs freeze <id>        # Freeze a subscription
+streampay subs unfreeze <id>      # Unfreeze a subscription
+streampay subs freezes <id>       # List subscription freezes
 ```
 
 Aliases: `streampay sub` works as shorthand for `subscription`
@@ -214,11 +202,11 @@ streampay invoice cancel <id>             # Cancel an invoice
 Manage your product catalog:
 
 ```bash
-streampay product create                  # Create a new product
-streampay product get <id>                # Get product by ID
-streampay product list                    # List all products
-streampay product update <id>             # Update product
-streampay product delete <id>             # Delete a product
+streampay products create                  # Create a new product
+streampay products get <id>                # Get product by ID
+streampay products list                    # List all products
+streampay products update <id>             # Update product
+streampay products delete <id>             # Delete a product
 ```
 
 ### Coupons
@@ -226,11 +214,11 @@ streampay product delete <id>             # Delete a product
 Create and manage discount codes:
 
 ```bash
-streampay coupon create                   # Create a new coupon
-streampay coupon get <id>                 # Get coupon by ID
-streampay coupon list                     # List all coupons
-streampay coupon update <id>              # Update coupon
-streampay coupon delete <id>              # Delete a coupon
+streampay coupons create                   # Create a new coupon
+streampay coupons get <id>                 # Get coupon by ID
+streampay coupons list                     # List all coupons
+streampay coupons update <id>              # Update coupon
+streampay coupons delete <id>              # Delete a coupon
 ```
 
 ### Checkout (Payment Links)
@@ -256,49 +244,18 @@ streampay webhook events                  # List webhook events
 streampay webhook verify                  # Verify webhook signature
 ```
 
-### Documentation
-
-Access API documentation from the CLI:
-
-```bash
-streampay docs                            # List available topics
-streampay docs consumers                  # Consumer documentation
-streampay docs payments                   # Payment documentation
-streampay docs subscriptions              # Subscription documentation
-streampay docs webhooks                   # Webhook documentation
-```
-
 ## Usage Examples
 
 ### Create a Consumer
 
 ```bash
-streampay consumer create --data '{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "phone": "+966501234567"
-}'
-```
-
-### Create from a JSON File
-
-```bash
-streampay consumer create --file consumer.json
-```
-
-Where `consumer.json` contains:
-```json
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "phone": "+966501234567"
-}
+streampay consumers create --name "John Doe" --email "john@example.com" --phone "+966501234567"
 ```
 
 ### List Payments with Filters
 
 ```bash
-streampay payment list \
+streampay payments list \
   --filter status=pending \
   --sort-by created_at \
   --sort-order desc \
@@ -310,7 +267,7 @@ streampay payment list \
 ### Create a Subscription
 
 ```bash
-streampay subscription create --data '{
+streampay subs create --data '{
   "consumer_id": "cons_123",
   "items": [
     {
@@ -325,7 +282,7 @@ streampay subscription create --data '{
 ### Freeze a Subscription
 
 ```bash
-streampay subscription freeze sub_789 --data '{
+streampay subs freeze sub_789 --data '{
   "start_date": "2024-01-01",
   "end_date": "2024-02-01",
   "reason": "Customer request"
@@ -335,7 +292,7 @@ streampay subscription freeze sub_789 --data '{
 ### Create a Coupon
 
 ```bash
-streampay coupon create --data '{
+streampay coupons create --data '{
   "code": "SAVE20",
   "discount_type": "percentage",
   "discount_value": 20,
@@ -358,7 +315,7 @@ streampay checkout create --data '{
 ### Auto-Charge a Consumer
 
 ```bash
-streampay payment auto-charge cons_123 --data '{
+streampay payments auto-charge cons_123 --data '{
   "amount": 99.99,
   "currency": "SAR",
   "description": "Monthly subscription renewal"
@@ -368,27 +325,27 @@ streampay payment auto-charge cons_123 --data '{
 ### Refund a Payment
 
 ```bash
-streampay payment refund pay_456
+streampay payments refund pay_456
 ```
 
 ### Complete Subscription Flow
 
 ```bash
 # 1. Create a consumer
-consumer_id=$(streampay consumer create --data '{
+consumer_id=$(streampay consumers create --data '{
   "name": "Jane Smith",
   "email": "jane@example.com"
 }' --format json | jq -r '.id')
 
 # 2. Create a product
-product_id=$(streampay product create --data '{
+product_id=$(streampay products create --data '{
   "name": "Pro Plan",
   "price": 49.99,
   "currency": "SAR"
 }' --format json | jq -r '.id')
 
 # 3. Create a subscription
-streampay subscription create --data '{
+streampay subs create --data '{
   "consumer_id": "'$consumer_id'",
   "items": [{"product_id": "'$product_id'", "quantity": 1}],
   "auto_renew": true
@@ -398,7 +355,7 @@ streampay subscription create --data '{
 ### Monitor Pending Invoices
 
 ```bash
-streampay invoice list \
+streampay invoices list \
   --filter status=pending \
   --sort-by created_at \
   --sort-order desc \
@@ -414,8 +371,8 @@ The CLI supports three output formats via the `--format` flag:
 Human-readable, colorized output:
 
 ```bash
-streampay consumer get cons_123
-streampay consumer get cons_123 --format pretty
+streampay consumers get cons_123
+streampay consumers get cons_123 --format pretty
 ```
 
 ### JSON
@@ -423,7 +380,7 @@ streampay consumer get cons_123 --format pretty
 Machine-readable JSON output, perfect for scripting and AI agents:
 
 ```bash
-streampay consumer list --format json
+streampay consumers list --format json
 ```
 
 ### Table
@@ -431,7 +388,7 @@ streampay consumer list --format json
 ASCII table format for list views:
 
 ```bash
-streampay payment list --format table
+streampay payments list --format table
 ```
 
 ## Development
@@ -441,8 +398,8 @@ streampay payment list --format table
 Run directly with TypeScript (no compilation):
 
 ```bash
-npm run dev -- consumer list
-npm run dev -- payment get pay_123 --format json
+npm run dev -- consumers list
+npm run dev -- payments get pay_123 --format json
 ```
 
 ### Build
@@ -493,7 +450,7 @@ The CLI reads configuration in the following priority order (highest to lowest):
 
 1. **CLI Flags** - Options passed directly to commands
    ```bash
-   streampay consumer list --api-key YOUR_KEY --branch production
+   streampay consumers list --api-key YOUR_KEY --branch production
    ```
 
 2. **Environment Variables** - Set in `.env` or shell environment
@@ -586,7 +543,7 @@ streampay config set --branch production
 
 Use `--format json` to see full error details:
 ```bash
-streampay consumer get INVALID_ID --format json
+streampay consumers get INVALID_ID --format json
 ```
 
 ## Contributing
@@ -602,38 +559,12 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 5. Build and test: `npm run build`
 6. Submit a pull request
 
-## License
-
-MIT License
-
-Copyright (c) 2024 StreamPay
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
 ## Support
 
 For issues, questions, or feature requests:
 
 - **GitHub Issues**: [Create an issue](https://github.com/streampay/streampay-cli/issues)
 - **Documentation**: [https://docs.streampay.sa](https://docs.streampay.sa)
-- **Email**: support@stream.sa
-
 ---
 
-Built with ❤️ by the StreamPay team
+Built with ❤️ by Mohammed Alsahli
