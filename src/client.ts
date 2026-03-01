@@ -300,8 +300,8 @@ export class StreamAppClient {
     return response.data;
   }
 
-  async cancelSubscription(id: string, data?: any): Promise<any> {
-    const response = await this.client.post(`/subscriptions/${id}/cancel`, data || {}, {
+  async cancelSubscription(id: string, data: any = {}): Promise<any> {
+    const response = await this.client.post(`/subscriptions/${id}/cancel`, data, {
       headers: this.addBranchHeader(),
     });
     return response.data;
@@ -314,8 +314,9 @@ export class StreamAppClient {
     return response.data;
   }
 
-  async listSubscriptionFreezes(id: string): Promise<any> {
+  async listSubscriptionFreezes(id: string, params?: PaginationParams): Promise<any> {
     const response = await this.client.get(`/subscriptions/${id}/freeze`, {
+      params,
       headers: this.addBranchHeader(),
     });
     return response.data;
