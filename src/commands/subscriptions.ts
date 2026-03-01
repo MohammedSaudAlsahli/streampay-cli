@@ -21,8 +21,7 @@ export function createSubscriptionCommands(): Command {
         const config = ConfigManager.getConfig();
         const client = new StreamAppClient({
           apiKey: ConfigManager.getApiKey(),
-          baseUrl: config.baseUrl,
-          branch: config.branch,
+          ...config,
         });
 
         const data: any = {
@@ -55,8 +54,7 @@ export function createSubscriptionCommands(): Command {
         const config = ConfigManager.getConfig();
         const client = new StreamAppClient({
           apiKey: ConfigManager.getApiKey(),
-          baseUrl: config.baseUrl,
-          branch: config.branch,
+          ...config,
         });
 
         const result = await client.getSubscription(id);
@@ -82,8 +80,7 @@ export function createSubscriptionCommands(): Command {
         const config = ConfigManager.getConfig();
         const client = new StreamAppClient({
           apiKey: ConfigManager.getApiKey(),
-          baseUrl: config.baseUrl,
-          branch: config.branch,
+          ...config,
         });
 
         const params: any = {};
@@ -91,7 +88,7 @@ export function createSubscriptionCommands(): Command {
         if (options.page) params.page = options.page;
         if (options.sortField) params.sort_field = options.sortField;
         if (options.sortDirection) params.sort_direction = options.sortDirection;
-        if (options.search) params.search = options.search;
+        if (options.search) params.search_term = options.search;
 
         const result = await client.listSubscriptions(params);
         OutputFormatter.output(result, { format: options.format });
@@ -115,8 +112,7 @@ export function createSubscriptionCommands(): Command {
         const config = ConfigManager.getConfig();
         const client = new StreamAppClient({
           apiKey: ConfigManager.getApiKey(),
-          baseUrl: config.baseUrl,
-          branch: config.branch,
+          ...config,
         });
 
         const data: any = {};
@@ -148,8 +144,7 @@ export function createSubscriptionCommands(): Command {
         const config = ConfigManager.getConfig();
         const client = new StreamAppClient({
           apiKey: ConfigManager.getApiKey(),
-          baseUrl: config.baseUrl,
-          branch: config.branch,
+          ...config,
         });
 
         const result = await client.cancelSubscription(id);
@@ -172,8 +167,7 @@ export function createSubscriptionCommands(): Command {
         const config = ConfigManager.getConfig();
         const client = new StreamAppClient({
           apiKey: ConfigManager.getApiKey(),
-          baseUrl: config.baseUrl,
-          branch: config.branch,
+          ...config,
         });
 
         const result = await client.freezeSubscription(id, {});
@@ -196,8 +190,7 @@ export function createSubscriptionCommands(): Command {
         const config = ConfigManager.getConfig();
         const client = new StreamAppClient({
           apiKey: ConfigManager.getApiKey(),
-          baseUrl: config.baseUrl,
-          branch: config.branch,
+          ...config,
         });
 
         const result = await client.unfreezeSubscription(id);

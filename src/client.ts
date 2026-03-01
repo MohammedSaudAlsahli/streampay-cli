@@ -112,6 +112,20 @@ export class StreamAppClient {
         'Content-Type': 'application/json',
         'User-Agent': 'streampay-cli-community/1.0.0 (by @MohammedSaudAlsahli)'
       },
+      paramsSerializer: (params: Record<string, any>) => {
+        const parts: string[] = [];
+        for (const [key, value] of Object.entries(params)) {
+          if (value === undefined || value === null) continue;
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(item))}`);
+            }
+          } else {
+            parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+          }
+        }
+        return parts.join('&');
+      },
     });
 
     this.client.interceptors.response.use(
@@ -416,7 +430,7 @@ export class StreamAppClient {
   }
 
   async markPaymentAsPaid(id: string, data: any): Promise<any> {
-    const response = await this.client.post(`/payments/${id}/mark-as-paid`, data, {
+    const response = await this.client.post(`/payments/${id}/mark-paid`, data, {
       headers: this.addBranchHeader(),
     });
     return response.data;

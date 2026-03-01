@@ -136,8 +136,6 @@ export function createConsumersCommands(): Command {
         const config = ConfigManager.getConfig();
         const client = new StreamAppClient({ apiKey: ConfigManager.getApiKey(), ...config });
 
-        OutputFormatter.info('Listing consumers...');
-
         const params: Record<string, any> = {};
         if (options.page !== undefined) params.page = options.page;
         if (options.limit !== undefined) params.limit = options.limit;

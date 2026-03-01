@@ -120,7 +120,11 @@ export function createCheckoutCommands(): Command {
 
         const result = await client.createPaymentLink(body);
         OutputFormatter.success('Payment link created successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'pretty') {
+          OutputFormatter.outputCheckoutDetail(result);
+        } else {
+          OutputFormatter.output(result, { format: options.format });
+        }
       } catch (error) {
         OutputFormatter.error('Failed to create payment link', error);
         process.exit(1);
@@ -145,7 +149,11 @@ export function createCheckoutCommands(): Command {
 
         const result = await client.getPaymentLink(id);
         OutputFormatter.success('Payment link retrieved successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'pretty') {
+          OutputFormatter.outputCheckoutDetail(result);
+        } else {
+          OutputFormatter.output(result, { format: options.format });
+        }
       } catch (error) {
         OutputFormatter.error('Failed to get payment link', error);
         process.exit(1);
@@ -178,17 +186,20 @@ export function createCheckoutCommands(): Command {
           ...config,
         });
 
-        OutputFormatter.info('Listing payment links...');
-
         const params: any = {};
 
         if (options.page !== undefined) params.page = options.page;
         if (options.limit !== undefined) params.limit = options.limit;
         if (options.sortField) params.sort_field = options.sortField;
-        if (options.sortDirection) params.sort_direction = options.sortDirection;
+        if (options.sortDirection) {
+          if (!['asc', 'desc'].includes(options.sortDirection)) {
+            throw new Error(`Invalid sort direction "${options.sortDirection}". Must be one of: asc, desc`);
+          }
+          params.sort_direction = options.sortDirection;
+        }
 
         if (options.statuses) {
-          const statusList = options.statuses.split(',').map((s: string) => s.trim()).filter(Boolean);
+          const statusList = options.statuses.split(',').map((s: string) => s.trim().toUpperCase()).filter(Boolean);
           for (const s of statusList) {
             if (!VALID_STATUSES.includes(s)) {
               throw new Error(
@@ -211,7 +222,11 @@ export function createCheckoutCommands(): Command {
         if (options.currencies) params.currencies = options.currencies;
 
         const result = await client.listPaymentLinks(params);
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'table') {
+          OutputFormatter.outputCheckoutTable(result);
+        } else {
+          OutputFormatter.output(result, { format: options.format });
+        }
       } catch (error) {
         OutputFormatter.error('Failed to list payment links', error);
         process.exit(1);
@@ -236,7 +251,11 @@ export function createCheckoutCommands(): Command {
 
         const result = await client.updatePaymentLinkStatus(id, { status: 'ACTIVE' });
         OutputFormatter.success('Payment link activated successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'pretty') {
+          OutputFormatter.outputCheckoutDetail(result);
+        } else {
+          OutputFormatter.output(result, { format: options.format });
+        }
       } catch (error) {
         OutputFormatter.error('Failed to activate payment link', error);
         process.exit(1);
@@ -267,7 +286,11 @@ export function createCheckoutCommands(): Command {
 
         const result = await client.updatePaymentLinkStatus(id, body);
         OutputFormatter.success('Payment link deactivated successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'pretty') {
+          OutputFormatter.outputCheckoutDetail(result);
+        } else {
+          OutputFormatter.output(result, { format: options.format });
+        }
       } catch (error) {
         OutputFormatter.error('Failed to deactivate payment link', error);
         process.exit(1);
@@ -315,7 +338,11 @@ export function createCheckoutCommands(): Command {
 
         const result = await client.updatePaymentLinkStatus(id, body);
         OutputFormatter.success('Payment link status updated successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'pretty') {
+          OutputFormatter.outputCheckoutDetail(result);
+        } else {
+          OutputFormatter.output(result, { format: options.format });
+        }
       } catch (error) {
         OutputFormatter.error('Failed to update payment link status', error);
         process.exit(1);
