@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { createCheckoutCommands } from './commands/checkout';
 import { createConfigCommand, createLoginCommand, createLogoutCommand } from './commands/config';
+import { createMeCommand } from './commands/me';
 import { createConsumersCommands } from './commands/consumers';
 import { createCouponsCommands } from './commands/coupons';
 import { createInvoiceCommands } from './commands/invoices';
@@ -30,6 +31,7 @@ program
 
 program.addCommand(createLoginCommand());
 program.addCommand(createLogoutCommand());
+program.addCommand(createMeCommand());
 program.addCommand(createConfigCommand());
 program.addCommand(createConsumersCommands());
 program.addCommand(createPaymentsCommands());

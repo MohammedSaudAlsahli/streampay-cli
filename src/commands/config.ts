@@ -62,11 +62,15 @@ export function createLoginCommand(): Command {
           `  ${chalk.yellow('Organization')}: ${me.organization?.name ?? chalk.gray('(unknown)')}`,
         );
         console.log(
-          `  ${chalk.yellow('User')}:         ${me.user?.email ?? me.email ?? chalk.gray('(unknown)')}`,
+          `  ${chalk.yellow('User')}:         ${me.user?.email ?? chalk.gray('(unknown)')}`,
         );
-        console.log(
-          `  ${chalk.yellow('Environment')}: ${me.environment ?? me.mode ?? chalk.gray('(unknown)')}`,
-        );
+        const isSandbox = me.organization?.sandbox;
+        const envLabel = isSandbox === true
+          ? chalk.yellow.bold('SANDBOX')
+          : isSandbox === false
+            ? chalk.green.bold('LIVE')
+            : chalk.gray('(unknown)');
+        console.log(`  ${chalk.yellow('Environment')}: ${envLabel}`);
       } catch (error: any) {
         OutputFormatter.error('Authentication failed', error);
         process.exit(1);

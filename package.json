@@ -1,6 +1,6 @@
 {
   "name": "streampay-cli",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Community CLI tool for Streampay platform. Simplifies resource management for developers and autonomous AI agents.",
   "main": "dist/index.js",
   "bin": {
