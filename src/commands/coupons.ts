@@ -92,7 +92,13 @@ export function createCouponsCommands(): Command {
 
         const result = await client.createCoupon(data);
         OutputFormatter.success('Coupon created successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'table') {
+          OutputFormatter.outputCouponTable({ data: [result] });
+        } else {
+          OutputFormatter.outputCouponDetail(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to create coupon', error);
         process.exit(1);
@@ -115,7 +121,13 @@ export function createCouponsCommands(): Command {
 
         const result = await client.getCoupon(id);
         OutputFormatter.success('Coupon retrieved successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'table') {
+          OutputFormatter.outputCouponTable({ data: [result] });
+        } else {
+          OutputFormatter.outputCouponDetail(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to get coupon', error);
         process.exit(1);
@@ -151,9 +163,14 @@ export function createCouponsCommands(): Command {
         if (options.sortField) params.sort_field = options.sortField;
         if (options.sortDirection) params.sort_direction = options.sortDirection;
 
-        OutputFormatter.info('Listing coupons...');
         const result = await client.listCoupons(params);
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'pretty') {
+          OutputFormatter.outputPretty(result);
+        } else {
+          OutputFormatter.outputCouponTable(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to list coupons', error);
         process.exit(1);
@@ -216,7 +233,13 @@ export function createCouponsCommands(): Command {
 
         const result = await client.updateCoupon(id, data);
         OutputFormatter.success('Coupon updated successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'table') {
+          OutputFormatter.outputCouponTable({ data: [result] });
+        } else {
+          OutputFormatter.outputCouponDetail(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to update coupon', error);
         process.exit(1);

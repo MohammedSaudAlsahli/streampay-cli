@@ -768,6 +768,423 @@ export class OutputFormatter {
   }
 
   /**
+   * Render a curated, readable table for consumer list results.
+   * Only shows the most useful columns.
+   */
+  static outputConsumerTable(data: any) {
+    const items = this.extractItems(data);
+    const pagination = this.extractPagination(data);
+
+    if (!Array.isArray(items) || items.length === 0) {
+      console.log(chalk.yellow('No consumers found'));
+      return;
+    }
+
+    const columns: { label: string; format: (item: any) => string }[] = [
+      { label: 'Name', format: (item) => chalk.white.bold(item.name || '—') },
+      { label: 'Alias', format: (item) => item.alias ? chalk.white(item.alias) : chalk.gray('—') },
+      { label: 'Email', format: (item) => item.email ? chalk.cyan(item.email) : chalk.gray('—') },
+      { label: 'Phone', format: (item) => item.phone_number ? chalk.cyan(item.phone_number) : chalk.gray('—') },
+      { label: 'Language', format: (item) => item.preferred_language ? chalk.yellow(item.preferred_language) : chalk.gray('—') },
+      {
+        label: 'Comms',
+        format: (item) => {
+          const methods: string[] = item.communication_methods || [];
+          return methods.length > 0 ? chalk.white(methods.join(', ')) : chalk.gray('—');
+        },
+      },
+      { label: 'Created', format: (item) => item.created_at ? chalk.blue(item.created_at.slice(0, 10)) : chalk.gray('—') },
+    ];
+
+    const t = new Table({
+      head: columns.map((c) => chalk.cyan.bold(c.label)),
+      style: { head: [], border: ['gray'] },
+      wordWrap: true,
+    });
+
+    for (const item of items) {
+      t.push(columns.map((c) => c.format(item)));
+    }
+
+    console.log(t.toString());
+
+    if (pagination) {
+      this.printPaginationInfo(pagination);
+    }
+  }
+
+  /**
+   * Render a detailed single-consumer view.
+   */
+  static outputConsumerDetail(data: any) {
+    const c = data;
+    if (!c || typeof c !== 'object') { console.log(data); return; }
+
+    const line = (label: string, value: string) =>
+      console.log(`  ${chalk.yellow(label.padEnd(22))} ${value}`);
+    const sep = () => console.log(chalk.gray('  ' + '─'.repeat(52)));
+
+    console.log();
+
+    // Header
+    console.log(chalk.white.bold(`  ${c.name || '—'}`));
+    console.log(chalk.gray(`  ${c.id ?? '—'}`));
+    sep();
+
+    // Contact
+    if (c.email) line('Email', chalk.cyan(c.email));
+    if (c.phone_number) line('Phone', chalk.cyan(c.phone_number));
+    if (c.alias) line('Alias', chalk.white(c.alias));
+    if (c.preferred_language) line('Language', chalk.yellow(c.preferred_language));
+
+    const methods: string[] = c.communication_methods || [];
+    if (methods.length > 0) line('Comms', chalk.white(methods.join(', ')));
+
+    sep();
+
+    // Extra
+    if (c.external_id) line('External ID', chalk.white.dim(c.external_id));
+    if (c.iban) line('IBAN', chalk.white.dim(c.iban));
+    if (c.comment) line('Comment', chalk.white(c.comment));
+
+    sep();
+
+    // Dates
+    if (c.created_at) line('Created', chalk.blue(c.created_at.slice(0, 10)));
+    if (c.updated_at) line('Updated', chalk.blue(c.updated_at.slice(0, 10)));
+
+    console.log();
+  }
+
+  /**
+   * Render a curated, readable table for subscription list results.
+   * Only shows the most useful columns; no raw UUIDs or nested objects.
+   */
+  static outputSubscriptionTable(data: any) {
+    const items = this.extractItems(data);
+    const pagination = this.extractPagination(data);
+
+    if (!Array.isArray(items) || items.length === 0) {
+      console.log(chalk.yellow('No subscriptions found'));
+      return;
+    }
+
+    const columns: { label: string; format: (item: any) => string }[] = [
+      {
+        label: 'Consumer',
+        format: (item) => {
+          const c = item.organization_consumer;
+          if (!c) return chalk.gray('—');
+          return chalk.white.bold(c.name || c.alias || c.email || c.id?.slice(0, 8) || '—');
+        },
+      },
+      {
+        label: 'Status',
+        format: (item) => this.formatValueColored(item.status, 'status'),
+      },
+      {
+        label: 'Amount',
+        format: (item) => item.amount
+          ? chalk.magenta(`${item.amount} ${item.currency || 'SAR'}`)
+          : chalk.gray('—'),
+      },
+      {
+        label: 'Interval',
+        format: (item) => item.recurring_interval
+          ? chalk.cyan(`Every ${item.recurring_interval_count ?? 1} ${item.recurring_interval}`)
+          : chalk.gray('—'),
+      },
+      {
+        label: 'Cycle #',
+        format: (item) => item.current_cycle_number != null
+          ? chalk.white(String(item.current_cycle_number))
+          : chalk.gray('—'),
+      },
+      {
+        label: 'Period End',
+        format: (item) => item.current_period_end
+          ? chalk.blue(item.current_period_end.slice(0, 10))
+          : chalk.gray('—'),
+      },
+      {
+        label: 'Created',
+        format: (item) => item.created_at
+          ? chalk.blue(item.created_at.slice(0, 10))
+          : chalk.gray('—'),
+      },
+    ];
+
+    const t = new Table({
+      head: columns.map((c) => chalk.cyan.bold(c.label)),
+      style: { head: [], border: ['gray'] },
+      wordWrap: true,
+    });
+
+    for (const item of items) {
+      t.push(columns.map((c) => c.format(item)));
+    }
+
+    console.log(t.toString());
+
+    if (pagination) {
+      this.printPaginationInfo(pagination);
+    }
+  }
+
+  /**
+   * Render a clean, human-readable summary of a single subscription.
+   * Used by subs get, create, update, cancel.
+   */
+  static outputSubscriptionDetail(data: any) {
+    const sub = data;
+    if (!sub || typeof sub !== 'object') { console.log(data); return; }
+
+    const line = (label: string, value: string) =>
+      console.log(`  ${chalk.yellow(label.padEnd(22))} ${value}`);
+    const sep = () => console.log(chalk.gray('  ' + '─'.repeat(52)));
+
+    console.log();
+
+    // ── Header ──────────────────────────────────────────────
+    const statusBadge = this.formatValueColored(sub.status, 'status');
+    console.log(
+      chalk.white.bold(`  Subscription`) +
+      chalk.gray('  ') + statusBadge
+    );
+    console.log(chalk.gray(`  ${sub.id ?? '—'}`));
+    sep();
+
+    // ── Consumer ────────────────────────────────────────────
+    const c = sub.organization_consumer;
+    if (c) {
+      line('Consumer', chalk.white.bold(c.name || c.alias || '—'));
+      if (c.email) line('Email', chalk.cyan(c.email));
+    }
+    sep();
+
+    // ── Billing ─────────────────────────────────────────────
+    line('Amount', chalk.magenta(`${sub.amount ?? '—'} ${sub.currency || 'SAR'}`));
+    if (sub.original_amount && sub.original_amount !== sub.amount) {
+      line('Original Amount', chalk.gray(`${sub.original_amount} ${sub.currency || 'SAR'}`));
+    }
+    if (sub.recurring_interval) {
+      line('Interval', chalk.cyan(`Every ${sub.recurring_interval_count ?? 1} ${sub.recurring_interval}`));
+    }
+    line('Cycle #', chalk.white(String(sub.current_cycle_number ?? '—')));
+    if (sub.cancel_at_cycle_number) {
+      line('Cancels at Cycle', chalk.yellow(String(sub.cancel_at_cycle_number)));
+    }
+    line('Cancel at Period End', sub.cancel_at_period_end ? chalk.yellow('Yes') : chalk.gray('No'));
+    sep();
+
+    // ── Period ───────────────────────────────────────────────
+    if (sub.current_period_start) line('Period Start', chalk.blue(sub.current_period_start.slice(0, 10)));
+    if (sub.current_period_end) line('Period End', chalk.blue(sub.current_period_end.slice(0, 10)));
+    if (sub.started_at) line('Started', chalk.blue(sub.started_at.slice(0, 10)));
+    if (sub.ended_at) line('Ended', chalk.red(sub.ended_at.slice(0, 10)));
+    sep();
+
+    // ── Items ───────────────────────────────────────────────
+    const items: any[] = sub.items || [];
+    if (items.length > 0) {
+      console.log(`  ${chalk.yellow('Items')} ${chalk.gray(`(${items.length})`)}`);
+      for (const it of items) {
+        const name = it.product?.name || it.product_id?.slice(0, 8) || '—';
+        console.log(
+          `    ${chalk.white.bold(name)}` +
+          chalk.gray(`  ×${it.quantity}`) +
+          `  ${chalk.magenta(`${it.discounted_amount ?? it.original_amount ?? '—'} ${sub.currency || 'SAR'}`)}`
+        );
+      }
+      sep();
+    }
+
+    // ── Active freeze ────────────────────────────────────────
+    const freeze = sub.latest_freeze;
+    if (freeze) {
+      console.log(`  ${chalk.yellow('Active Freeze')}`);
+      console.log(`    ${chalk.gray('Start:')} ${chalk.blue(freeze.freeze_start_datetime?.slice(0, 10) ?? '—')}`);
+      console.log(`    ${chalk.gray('End:')}   ${freeze.freeze_end_datetime ? chalk.blue(freeze.freeze_end_datetime.slice(0, 10)) : chalk.gray('indefinite')}`);
+      if (freeze.notes) console.log(`    ${chalk.gray('Notes:')} ${chalk.white(freeze.notes)}`);
+      sep();
+    }
+
+    // ── Description ──────────────────────────────────────────
+    if (sub.description) {
+      line('Description', chalk.white(sub.description));
+      sep();
+    }
+
+    // ── Dates ───────────────────────────────────────────────
+    if (sub.created_at) line('Created', chalk.blue(sub.created_at.slice(0, 10)));
+    if (sub.updated_at) line('Updated', chalk.blue(sub.updated_at.slice(0, 10)));
+
+    console.log();
+  }
+
+  /**
+   * Render a curated, readable table for subscription freeze period list results.
+   */
+  static outputFreezeTable(data: any) {
+    const items = this.extractItems(data);
+    const pagination = this.extractPagination(data);
+
+    if (!Array.isArray(items) || items.length === 0) {
+      console.log(chalk.yellow('No freeze periods found'));
+      return;
+    }
+
+    const columns: { label: string; format: (item: any) => string }[] = [
+      {
+        label: 'Start',
+        format: (item) => item.freeze_start_datetime
+          ? chalk.blue(item.freeze_start_datetime.slice(0, 10))
+          : chalk.gray('—'),
+      },
+      {
+        label: 'End',
+        format: (item) => item.freeze_end_datetime
+          ? chalk.blue(item.freeze_end_datetime.slice(0, 10))
+          : chalk.gray('indefinite'),
+      },
+      {
+        label: 'Duration',
+        format: (item) => item.duration != null
+          ? chalk.white(`${item.duration} days`)
+          : chalk.gray('—'),
+      },
+      {
+        label: 'Notes',
+        format: (item) => item.notes ? chalk.white(item.notes) : chalk.gray('—'),
+      },
+      {
+        label: 'Created',
+        format: (item) => item.created_at
+          ? chalk.blue(item.created_at.slice(0, 10))
+          : chalk.gray('—'),
+      },
+    ];
+
+    const t = new Table({
+      head: columns.map((c) => chalk.cyan.bold(c.label)),
+      style: { head: [], border: ['gray'] },
+      wordWrap: true,
+    });
+
+    for (const item of items) {
+      t.push(columns.map((c) => c.format(item)));
+    }
+
+    console.log(t.toString());
+
+    if (pagination) {
+      this.printPaginationInfo(pagination);
+    }
+  }
+
+  /**
+   * Render a curated, readable table for coupon list results.
+   */
+  static outputCouponTable(data: any) {
+    const items = this.extractItems(data);
+    const pagination = this.extractPagination(data);
+
+    if (!Array.isArray(items) || items.length === 0) {
+      console.log(chalk.yellow('No coupons found'));
+      return;
+    }
+
+    const columns: { label: string; format: (item: any) => string }[] = [
+      { label: 'Name', format: (item) => chalk.white.bold(item.name || '—') },
+      {
+        label: 'Discount',
+        format: (item) => {
+          if (item.is_percentage) {
+            return chalk.magenta(`${item.discount_value}%`);
+          }
+          return chalk.magenta(`${item.discount_value}${item.currency ? ' ' + item.currency : ''}`);
+        },
+      },
+      {
+        label: 'Type',
+        format: (item) => item.is_percentage ? chalk.cyan('Percentage') : chalk.white('Fixed'),
+      },
+      {
+        label: 'Status',
+        format: (item) => item.is_active ? chalk.green('● Active') : chalk.red('○ Inactive'),
+      },
+      {
+        label: 'Used',
+        format: (item) => item.times_used != null
+          ? (item.times_used > 0 ? chalk.white(String(item.times_used)) : chalk.gray('0'))
+          : chalk.gray('—'),
+      },
+      {
+        label: 'Created',
+        format: (item) => item.created_at ? chalk.blue(item.created_at.slice(0, 10)) : chalk.gray('—'),
+      },
+    ];
+
+    const t = new Table({
+      head: columns.map((c) => chalk.cyan.bold(c.label)),
+      style: { head: [], border: ['gray'] },
+      wordWrap: true,
+    });
+
+    for (const item of items) {
+      t.push(columns.map((c) => c.format(item)));
+    }
+
+    console.log(t.toString());
+
+    if (pagination) {
+      this.printPaginationInfo(pagination);
+    }
+  }
+
+  /**
+   * Render a clean, human-readable summary of a single coupon.
+   */
+  static outputCouponDetail(data: any) {
+    const coupon = data;
+    if (!coupon || typeof coupon !== 'object') { console.log(data); return; }
+
+    const line = (label: string, value: string) =>
+      console.log(`  ${chalk.yellow(label.padEnd(20))} ${value}`);
+    const sep = () => console.log(chalk.gray('  ' + '─'.repeat(52)));
+
+    console.log();
+
+    // Header
+    const statusBadge = coupon.is_active ? chalk.green('● Active') : chalk.red('○ Inactive');
+    const typeBadge = coupon.is_percentage ? chalk.cyan('[Percentage]') : chalk.white('[Fixed]');
+    console.log(
+      chalk.white.bold(`  ${coupon.name || '—'}`) +
+      chalk.gray('  ') + statusBadge +
+      chalk.gray('  ') + typeBadge
+    );
+    console.log(chalk.gray(`  ${coupon.id ?? '—'}`));
+    sep();
+
+    // Discount
+    if (coupon.is_percentage) {
+      line('Discount', chalk.magenta(`${coupon.discount_value}%`));
+    } else {
+      line('Discount', chalk.magenta(`${coupon.discount_value}${coupon.currency ? ' ' + coupon.currency : ''}`));
+      if (coupon.currency) line('Currency', chalk.yellow(coupon.currency));
+    }
+
+    line('Times Used', coupon.times_used != null ? chalk.white(String(coupon.times_used)) : chalk.gray('0'));
+    sep();
+
+    // Dates
+    if (coupon.created_at) line('Created', chalk.blue(coupon.created_at.slice(0, 10)));
+    if (coupon.updated_at) line('Updated', chalk.blue(coupon.updated_at.slice(0, 10)));
+
+    console.log();
+  }
+
+  /**
    * Render a curated, readable table for payment list results.
    * Only shows the most useful columns.
    */

@@ -88,7 +88,13 @@ export function createConsumersCommands(): Command {
 
         const result = await client.createConsumer(data);
         OutputFormatter.success('Consumer created successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'table') {
+          OutputFormatter.outputConsumerTable({ data: [result] });
+        } else {
+          OutputFormatter.outputConsumerDetail(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to create consumer', error);
         process.exit(1);
@@ -111,7 +117,13 @@ export function createConsumersCommands(): Command {
 
         const result = await client.getConsumer(id);
         OutputFormatter.success('Consumer retrieved successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'table') {
+          OutputFormatter.outputConsumerTable({ data: [result] });
+        } else {
+          OutputFormatter.outputConsumerDetail(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to get consumer', error);
         process.exit(1);
@@ -144,7 +156,13 @@ export function createConsumersCommands(): Command {
         if (options.sortDirection) params.sort_direction = options.sortDirection;
 
         const result = await client.getAllConsumers(params);
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'pretty') {
+          OutputFormatter.outputPretty(result);
+        } else {
+          OutputFormatter.outputConsumerTable(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to list consumers', error);
         process.exit(1);
@@ -233,7 +251,13 @@ export function createConsumersCommands(): Command {
 
         const result = await client.updateConsumer(id, data);
         OutputFormatter.success('Consumer updated successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'table') {
+          OutputFormatter.outputConsumerTable({ data: [result] });
+        } else {
+          OutputFormatter.outputConsumerDetail(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to update consumer', error);
         process.exit(1);

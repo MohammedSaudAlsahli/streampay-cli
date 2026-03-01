@@ -84,7 +84,13 @@ export function createSubscriptionCommands(): Command {
 
         const result = await client.createSubscription(body);
         OutputFormatter.success('Subscription created successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'table') {
+          OutputFormatter.outputSubscriptionTable({ data: [result] });
+        } else {
+          OutputFormatter.outputSubscriptionDetail(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to create subscription', error);
         process.exit(1);
@@ -109,7 +115,13 @@ export function createSubscriptionCommands(): Command {
 
         const result = await client.getSubscription(id);
         OutputFormatter.success('Subscription retrieved successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'table') {
+          OutputFormatter.outputSubscriptionTable({ data: [result] });
+        } else {
+          OutputFormatter.outputSubscriptionDetail(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to get subscription', error);
         process.exit(1);
@@ -186,7 +198,13 @@ export function createSubscriptionCommands(): Command {
         if (options.periodEndTo !== undefined) params.current_period_end_to_date = options.periodEndTo;
 
         const result = await client.listSubscriptions(params);
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'pretty') {
+          OutputFormatter.outputPretty(result);
+        } else {
+          OutputFormatter.outputSubscriptionTable(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to list subscriptions', error);
         process.exit(1);
@@ -245,7 +263,13 @@ export function createSubscriptionCommands(): Command {
 
         const result = await client.updateSubscription(id, body);
         OutputFormatter.success('Subscription updated successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'table') {
+          OutputFormatter.outputSubscriptionTable({ data: [result] });
+        } else {
+          OutputFormatter.outputSubscriptionDetail(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to update subscription', error);
         process.exit(1);
@@ -283,7 +307,13 @@ export function createSubscriptionCommands(): Command {
 
         const result = await client.cancelSubscription(id, body);
         OutputFormatter.success(`Subscription ${id} cancelled successfully`);
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'table') {
+          OutputFormatter.outputSubscriptionTable({ data: [result] });
+        } else {
+          OutputFormatter.outputSubscriptionDetail(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to cancel subscription', error);
         process.exit(1);
@@ -367,7 +397,13 @@ export function createSubscriptionCommands(): Command {
         if (options.sortDirection !== undefined) params.sort_direction = options.sortDirection;
 
         const result = await client.listSubscriptionFreezes(subscriptionId, params);
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'pretty') {
+          OutputFormatter.outputPretty(result);
+        } else {
+          OutputFormatter.outputFreezeTable(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to list subscription freeze periods', error);
         process.exit(1);
