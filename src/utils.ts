@@ -586,6 +586,188 @@ export class OutputFormatter {
   }
 
   /**
+   * Render a curated, readable table for product list results.
+   * Only shows the most useful columns; no raw UUIDs, deprecated fields, or nested objects.
+   */
+  static outputProductTable(data: any) {
+    const items = this.extractItems(data);
+    const pagination = this.extractPagination(data);
+
+    if (!Array.isArray(items) || items.length === 0) {
+      console.log(chalk.yellow('No products found'));
+      return;
+    }
+
+    const columns: { label: string; format: (item: any) => string }[] = [
+      {
+        label: 'Name',
+        format: (item) => chalk.white.bold(item.name || '—'),
+      },
+      {
+        label: 'Type',
+        format: (item) => item.type === 'RECURRING'
+          ? chalk.cyan('RECURRING')
+          : chalk.white('ONE_OFF'),
+      },
+      {
+        label: 'Interval',
+        format: (item) => {
+          if (!item.recurring_interval) return chalk.gray('—');
+          const count = item.recurring_interval_count ?? 1;
+          return chalk.cyan(`Every ${count} ${item.recurring_interval}`);
+        },
+      },
+      {
+        label: 'Price',
+        format: (item) => {
+          const prices: any[] = item.prices || [];
+          const activePrices = prices.filter((p: any) => p.is_active !== false);
+          if (activePrices.length > 0) {
+            return chalk.magenta(
+              activePrices.map((p: any) => `${p.amount} ${p.currency}`).join(' / ')
+            );
+          }
+          // Fallback to legacy fields
+          if (item.price && item.currency) {
+            return chalk.magenta(`${item.price} ${item.currency}`);
+          }
+          return chalk.gray('—');
+        },
+      },
+      {
+        label: 'VAT',
+        format: (item) => {
+          const prices: any[] = item.prices || [];
+          const p = prices[0];
+          if (p) {
+            if (p.is_price_exempt_from_vat) return chalk.gray('Exempt');
+            if (p.is_price_inclusive_of_vat) return chalk.gray('Incl.');
+            return chalk.gray('Excl.');
+          }
+          if (item.is_price_exempt_from_vat) return chalk.gray('Exempt');
+          if (item.is_price_inclusive_of_vat) return chalk.gray('Incl.');
+          return chalk.gray('Excl.');
+        },
+      },
+      {
+        label: 'Status',
+        format: (item) => item.is_active
+          ? chalk.green('● Active')
+          : chalk.red('○ Inactive'),
+      },
+      {
+        label: 'Created',
+        format: (item) => item.created_at
+          ? chalk.blue(item.created_at.slice(0, 10))
+          : chalk.gray('—'),
+      },
+    ];
+
+    const t = new Table({
+      head: columns.map((c) => chalk.cyan.bold(c.label)),
+      style: { head: [], border: ['gray'] },
+      wordWrap: true,
+    });
+
+    for (const item of items) {
+      t.push(columns.map((c) => c.format(item)));
+    }
+
+    console.log(t.toString());
+
+    if (pagination) {
+      this.printPaginationInfo(pagination);
+    }
+  }
+
+  /**
+   * Render a clean, human-readable summary of a single product.
+   * Used by products get, create, update.
+   */
+  static outputProductDetail(data: any) {
+    const prod = data;
+    if (!prod || typeof prod !== 'object') {
+      console.log(data);
+      return;
+    }
+
+    const line = (label: string, value: string) =>
+      console.log(`  ${chalk.yellow(label.padEnd(18))} ${value}`);
+
+    const sep = () => console.log(chalk.gray('  ' + '─'.repeat(52)));
+
+    console.log();
+
+    // ── Header ──────────────────────────────────────────────
+    const statusBadge = prod.is_active
+      ? chalk.green('● Active')
+      : chalk.red('○ Inactive');
+    const typeBadge = prod.type === 'RECURRING'
+      ? chalk.cyan('[RECURRING]')
+      : chalk.white('[ONE_OFF]');
+    console.log(
+      chalk.white.bold(`  ${prod.name || '—'}`) +
+      chalk.gray('  ') + statusBadge +
+      chalk.gray('  ') + typeBadge
+    );
+    console.log(chalk.gray(`  ${prod.id ?? '—'}`));
+    sep();
+
+    // ── Details ─────────────────────────────────────────────
+    line('Type', prod.type === 'RECURRING' ? chalk.cyan('RECURRING') : chalk.white('ONE_OFF'));
+
+    if (prod.recurring_interval) {
+      const count = prod.recurring_interval_count ?? 1;
+      line('Interval', chalk.cyan(`Every ${count} ${prod.recurring_interval}`));
+    }
+
+    line('One-time', prod.is_one_time ? chalk.yellow('Yes') : chalk.gray('No'));
+
+    if (prod.description) {
+      line('Description', chalk.white(prod.description));
+    }
+
+    sep();
+
+    // ── Prices ──────────────────────────────────────────────
+    const prices: any[] = prod.prices || [];
+    if (prices.length > 0) {
+      console.log(`  ${chalk.yellow('Prices')} ${chalk.gray(`(${prices.length})`)}`);
+      for (const p of prices) {
+        const activeTag = p.is_active === false ? chalk.red(' [inactive]') : '';
+        let vatTag = '';
+        if (p.is_price_exempt_from_vat) {
+          vatTag = chalk.gray('  Exempt from VAT');
+        } else if (p.is_price_inclusive_of_vat) {
+          vatTag = chalk.gray('  Incl. VAT') + (p.vat_amount ? chalk.gray(` (VAT: ${p.vat_amount})`) : '');
+        } else {
+          vatTag = chalk.gray('  Excl. VAT');
+        }
+        console.log(
+          `    ${chalk.yellow(p.currency.padEnd(5))} ` +
+          chalk.magenta(String(p.amount).padStart(10)) +
+          vatTag +
+          activeTag
+        );
+      }
+    } else if (prod.price && prod.currency) {
+      // Legacy fallback
+      console.log(`  ${chalk.yellow('Price')} ${chalk.magenta(`${prod.price} ${prod.currency}`)}`);
+      if (prod.vat_amount && parseFloat(prod.vat_amount) > 0) {
+        console.log(`  ${chalk.yellow('VAT')}   ${chalk.gray(prod.vat_amount)}`);
+      }
+    }
+
+    sep();
+
+    // ── Dates ───────────────────────────────────────────────
+    if (prod.created_at) line('Created', chalk.blue(prod.created_at.slice(0, 10)));
+    if (prod.updated_at) line('Updated', chalk.blue(prod.updated_at.slice(0, 10)));
+
+    console.log();
+  }
+
+  /**
    * Render a curated, readable table for payment list results.
    * Only shows the most useful columns.
    */

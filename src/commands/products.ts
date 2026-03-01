@@ -92,7 +92,13 @@ export function createProductCommands(): Command {
 
         const result = await client.createProduct(data);
         OutputFormatter.success('Product created successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'table') {
+          OutputFormatter.outputProductTable({ data: [result] });
+        } else {
+          OutputFormatter.outputProductDetail(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to create product', error);
         process.exit(1);
@@ -117,7 +123,13 @@ export function createProductCommands(): Command {
 
         const result = await client.getProduct(id);
         OutputFormatter.success('Product retrieved successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'table') {
+          OutputFormatter.outputProductTable({ data: [result] });
+        } else {
+          OutputFormatter.outputProductDetail(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to get product', error);
         process.exit(1);
@@ -168,7 +180,13 @@ export function createProductCommands(): Command {
           return;
         }
 
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'pretty') {
+          OutputFormatter.outputPretty(result);
+        } else {
+          OutputFormatter.outputProductTable(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to list products', error);
         process.exit(1);
@@ -283,7 +301,13 @@ export function createProductCommands(): Command {
 
         const result = await client.updateProduct(id, data);
         OutputFormatter.success('Product updated successfully');
-        OutputFormatter.output(result, { format: options.format });
+        if (options.format === 'json') {
+          OutputFormatter.output(result, { format: 'json' });
+        } else if (options.format === 'table') {
+          OutputFormatter.outputProductTable({ data: [result] });
+        } else {
+          OutputFormatter.outputProductDetail(result);
+        }
       } catch (error) {
         OutputFormatter.error('Failed to update product', error);
         process.exit(1);
