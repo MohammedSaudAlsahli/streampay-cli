@@ -2,8 +2,31 @@ import chalk from 'chalk';
 import Table from 'cli-table3';
 
 export interface OutputOptions {
-  format?: 'json' | 'table' | 'pretty';
+  json?: boolean;
+  table?: boolean;
+  pretty?: boolean;
   silent?: boolean;
+}
+
+export function getMergedFormatOptions(localOptions: any, command: any): OutputOptions {
+  let current = command;
+  let globalOpts: any = {};
+  
+  while (current && current.parent) {
+    current = current.parent;
+    const opts = current.opts();
+    if (opts.json !== undefined || opts.table !== undefined || opts.pretty !== undefined) {
+      globalOpts = opts;
+      break;
+    }
+  }
+  
+  return {
+    json: localOptions.json ?? globalOpts.json ?? false,
+    table: localOptions.table ?? globalOpts.table ?? false,
+    pretty: localOptions.pretty ?? globalOpts.pretty ?? false,
+    silent: localOptions.silent ?? globalOpts.silent ?? false,
+  };
 }
 
 interface StreamApiErrorBody {
@@ -28,12 +51,45 @@ interface PaginationInfo {
 }
 
 export class OutputFormatter {
-  static output(data: any, options: OutputOptions = {}) {
-    if (options.silent) {
-      return;
+  private static formatDateTime(value: string): string {
+    if (!value || typeof value !== 'string') return value;
+    const match = value.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+    if (match) {
+      return `${match[1]} ${match[2]}`;
     }
+    return value;
+  }
 
-    const format = options.format || 'pretty';
+  private static isDateTimeField(key: string): boolean {
+    const lowerKey = key.toLowerCase();
+    return (
+      lowerKey.endsWith('_at') ||
+      lowerKey.endsWith('_date') ||
+      lowerKey === 'valid_until' ||
+      lowerKey === 'scheduled_on' ||
+      lowerKey === 'started_at' ||
+      lowerKey === 'ended_at'
+    );
+  }
+
+  private static formatShortId(id: string | undefined): string {
+    if (!id) return chalk.gray('—');
+    if (id.length <= 10) return chalk.white.dim(id);
+    return chalk.white.dim(`${id.slice(0, 5)}...${id.slice(-5)}`);
+  }
+
+  static output(data: any, options: OutputOptions = {}) {
+    if (options.silent) return;
+
+    let format: 'json' | 'table' | 'pretty' = 'pretty';
+
+    if (options.json) {
+      format = 'json';
+    } else if (options.table) {
+      format = 'table';
+    } else if (options.pretty) {
+      format = 'pretty';
+    }
 
     switch (format) {
       case 'json':
@@ -97,7 +153,10 @@ export class OutputFormatter {
       } else if (typeof value === 'boolean') {
         console.log(`${spaces}${chalk.yellow(key)}: ${value ? chalk.green('true') : chalk.red('false')}`);
       } else {
-        console.log(`${spaces}${chalk.yellow(key)}: ${chalk.white(String(value))}`);
+        const displayValue = this.isDateTimeField(key) && typeof value === 'string'
+          ? this.formatDateTime(value)
+          : String(value);
+        console.log(`${spaces}${chalk.yellow(key)}: ${chalk.white(displayValue)}`);
       }
     }
   }
@@ -168,7 +227,7 @@ export class OutputFormatter {
       },
       {
         label: 'ID',
-        format: (item) => chalk.white.dim(item.id ?? '—'),
+        format: (item) => OutputFormatter.formatShortId(item.id),
       },
       {
         label: 'Consumer',
@@ -354,8 +413,8 @@ export class OutputFormatter {
     }
 
     // ── Dates ───────────────────────────────────────────────
-    if (inv.created_at) line('Created', chalk.blue(inv.created_at.slice(0, 19).replace('T', ' ')));
-    if (inv.updated_at) line('Updated', chalk.blue(inv.updated_at.slice(0, 19).replace('T', ' ')));
+    if (inv.created_at) line('Created', chalk.blue(this.formatDateTime(inv.created_at)));
+    if (inv.updated_at) line('Updated', chalk.blue(this.formatDateTime(inv.updated_at)));
 
     // ── Description ─────────────────────────────────────────
     if (inv.description) {
@@ -393,7 +452,7 @@ export class OutputFormatter {
     const columns: { label: string; format: (item: any) => string }[] = [
       {
         label: 'ID',
-        format: (item) => chalk.white.dim(item.id ?? '—'),
+        format: (item) => OutputFormatter.formatShortId(item.id),
       },
       {
         label: 'Name',
@@ -534,7 +593,7 @@ export class OutputFormatter {
       line('Max Payments', chalk.gray('∞ unlimited'));
     }
     if (pl.valid_until) {
-      line('Valid Until', chalk.blue(pl.valid_until.slice(0, 19).replace('T', ' ')));
+      line('Valid Until', chalk.blue(this.formatDateTime(pl.valid_until)));
     }
     if (pl.contact_information_type) {
       line('Contact Type', chalk.white(pl.contact_information_type));
@@ -559,8 +618,8 @@ export class OutputFormatter {
     }
 
     // ── Dates ───────────────────────────────────────────────
-    if (pl.created_at) line('Created', chalk.blue(pl.created_at.slice(0, 19).replace('T', ' ')));
-    if (pl.updated_at) line('Updated', chalk.blue(pl.updated_at.slice(0, 19).replace('T', ' ')));
+    if (pl.created_at) line('Created', chalk.blue(this.formatDateTime(pl.created_at)));
+    if (pl.updated_at) line('Updated', chalk.blue(this.formatDateTime(pl.updated_at)));
 
     // ── Description ─────────────────────────────────────────
     if (pl.description) {
@@ -599,6 +658,10 @@ export class OutputFormatter {
     }
 
     const columns: { label: string; format: (item: any) => string }[] = [
+      {
+        label: 'ID',
+        format: (item) => OutputFormatter.formatShortId(item.id),
+      },
       {
         label: 'Name',
         format: (item) => chalk.white.bold(item.name || '—'),
@@ -651,9 +714,7 @@ export class OutputFormatter {
       },
       {
         label: 'Status',
-        format: (item) => item.is_active
-          ? chalk.green('● Active')
-          : chalk.red('○ Inactive'),
+        format: (item) => this.formatValueColored(item.is_active ? 'Active' : 'Inactive', 'status'),
       },
       {
         label: 'Created',
@@ -692,7 +753,7 @@ export class OutputFormatter {
     }
 
     const line = (label: string, value: string) =>
-      console.log(`  ${chalk.yellow(label.padEnd(18))} ${value}`);
+      console.log(`  ${chalk.yellow(label.padEnd(22))} ${value}`);
 
     const sep = () => console.log(chalk.gray('  ' + '─'.repeat(52)));
 
@@ -761,8 +822,8 @@ export class OutputFormatter {
     sep();
 
     // ── Dates ───────────────────────────────────────────────
-    if (prod.created_at) line('Created', chalk.blue(prod.created_at.slice(0, 10)));
-    if (prod.updated_at) line('Updated', chalk.blue(prod.updated_at.slice(0, 10)));
+    if (prod.created_at) line('Created', chalk.blue(this.formatDateTime(prod.created_at)));
+    if (prod.updated_at) line('Updated', chalk.blue(this.formatDateTime(prod.updated_at)));
 
     console.log();
   }
@@ -781,6 +842,7 @@ export class OutputFormatter {
     }
 
     const columns: { label: string; format: (item: any) => string }[] = [
+      { label: 'ID', format: (item) => OutputFormatter.formatShortId(item.id) },
       { label: 'Name', format: (item) => chalk.white.bold(item.name || '—') },
       { label: 'Alias', format: (item) => item.alias ? chalk.white(item.alias) : chalk.gray('—') },
       { label: 'Email', format: (item) => item.email ? chalk.cyan(item.email) : chalk.gray('—') },
@@ -850,8 +912,8 @@ export class OutputFormatter {
     sep();
 
     // Dates
-    if (c.created_at) line('Created', chalk.blue(c.created_at.slice(0, 10)));
-    if (c.updated_at) line('Updated', chalk.blue(c.updated_at.slice(0, 10)));
+    if (c.created_at) line('Created', chalk.blue(this.formatDateTime(c.created_at)));
+    if (c.updated_at) line('Updated', chalk.blue(this.formatDateTime(c.updated_at)));
 
     console.log();
   }
@@ -870,6 +932,10 @@ export class OutputFormatter {
     }
 
     const columns: { label: string; format: (item: any) => string }[] = [
+      {
+        label: 'ID',
+        format: (item) => OutputFormatter.formatShortId(item.id),
+      },
       {
         label: 'Consumer',
         format: (item) => {
@@ -978,10 +1044,10 @@ export class OutputFormatter {
     sep();
 
     // ── Period ───────────────────────────────────────────────
-    if (sub.current_period_start) line('Period Start', chalk.blue(sub.current_period_start.slice(0, 10)));
-    if (sub.current_period_end) line('Period End', chalk.blue(sub.current_period_end.slice(0, 10)));
-    if (sub.started_at) line('Started', chalk.blue(sub.started_at.slice(0, 10)));
-    if (sub.ended_at) line('Ended', chalk.red(sub.ended_at.slice(0, 10)));
+    if (sub.current_period_start) line('Period Start', chalk.blue(this.formatDateTime(sub.current_period_start)));
+    if (sub.current_period_end) line('Period End', chalk.blue(this.formatDateTime(sub.current_period_end)));
+    if (sub.started_at) line('Started', chalk.blue(this.formatDateTime(sub.started_at)));
+    if (sub.ended_at) line('Ended', chalk.red(this.formatDateTime(sub.ended_at)));
     sep();
 
     // ── Items ───────────────────────────────────────────────
@@ -1003,8 +1069,8 @@ export class OutputFormatter {
     const freeze = sub.latest_freeze;
     if (freeze) {
       console.log(`  ${chalk.yellow('Active Freeze')}`);
-      console.log(`    ${chalk.gray('Start:')} ${chalk.blue(freeze.freeze_start_datetime?.slice(0, 10) ?? '—')}`);
-      console.log(`    ${chalk.gray('End:')}   ${freeze.freeze_end_datetime ? chalk.blue(freeze.freeze_end_datetime.slice(0, 10)) : chalk.gray('indefinite')}`);
+      console.log(`    ${chalk.gray('Start:')} ${chalk.blue(this.formatDateTime(freeze.freeze_start_datetime ?? ''))}`);
+      console.log(`    ${chalk.gray('End:')}   ${freeze.freeze_end_datetime ? chalk.blue(this.formatDateTime(freeze.freeze_end_datetime)) : chalk.gray('indefinite')}`);
       if (freeze.notes) console.log(`    ${chalk.gray('Notes:')} ${chalk.white(freeze.notes)}`);
       sep();
     }
@@ -1016,8 +1082,8 @@ export class OutputFormatter {
     }
 
     // ── Dates ───────────────────────────────────────────────
-    if (sub.created_at) line('Created', chalk.blue(sub.created_at.slice(0, 10)));
-    if (sub.updated_at) line('Updated', chalk.blue(sub.updated_at.slice(0, 10)));
+    if (sub.created_at) line('Created', chalk.blue(this.formatDateTime(sub.created_at)));
+    if (sub.updated_at) line('Updated', chalk.blue(this.formatDateTime(sub.updated_at)));
 
     console.log();
   }
@@ -1035,6 +1101,10 @@ export class OutputFormatter {
     }
 
     const columns: { label: string; format: (item: any) => string }[] = [
+      {
+        label: 'ID',
+        format: (item) => OutputFormatter.formatShortId(item.id),
+      },
       {
         label: 'Start',
         format: (item) => item.freeze_start_datetime
@@ -1095,7 +1165,9 @@ export class OutputFormatter {
     }
 
     const columns: { label: string; format: (item: any) => string }[] = [
+      { label: 'ID', format: (item) => OutputFormatter.formatShortId(item.id) },
       { label: 'Name', format: (item) => chalk.white.bold(item.name || '—') },
+      { label: 'Code', format: (item) => chalk.cyan(item.code ?? '—') },
       {
         label: 'Discount',
         format: (item) => {
@@ -1111,7 +1183,7 @@ export class OutputFormatter {
       },
       {
         label: 'Status',
-        format: (item) => item.is_active ? chalk.green('● Active') : chalk.red('○ Inactive'),
+        format: (item) => this.formatValueColored(item.is_active ? 'Active' : 'Inactive', 'status'),
       },
       {
         label: 'Used',
@@ -1150,7 +1222,7 @@ export class OutputFormatter {
     if (!coupon || typeof coupon !== 'object') { console.log(data); return; }
 
     const line = (label: string, value: string) =>
-      console.log(`  ${chalk.yellow(label.padEnd(20))} ${value}`);
+      console.log(`  ${chalk.yellow(label.padEnd(22))} ${value}`);
     const sep = () => console.log(chalk.gray('  ' + '─'.repeat(52)));
 
     console.log();
@@ -1166,6 +1238,8 @@ export class OutputFormatter {
     console.log(chalk.gray(`  ${coupon.id ?? '—'}`));
     sep();
 
+    line('Code', chalk.cyan(coupon.code ?? '—'));
+
     // Discount
     if (coupon.is_percentage) {
       line('Discount', chalk.magenta(`${coupon.discount_value}%`));
@@ -1178,8 +1252,8 @@ export class OutputFormatter {
     sep();
 
     // Dates
-    if (coupon.created_at) line('Created', chalk.blue(coupon.created_at.slice(0, 10)));
-    if (coupon.updated_at) line('Updated', chalk.blue(coupon.updated_at.slice(0, 10)));
+    if (coupon.created_at) line('Created', chalk.blue(this.formatDateTime(coupon.created_at)));
+    if (coupon.updated_at) line('Updated', chalk.blue(this.formatDateTime(coupon.updated_at)));
 
     console.log();
   }
@@ -1189,10 +1263,8 @@ export class OutputFormatter {
    * Only shows the most useful columns.
    */
   static outputPaymentTable(data: any, options: OutputOptions = {}) {
-    const format = options.format || 'pretty';
-
-    if (format === 'json') {
-      OutputFormatter.output(data, { format: 'json' });
+    if (options.json) {
+      OutputFormatter.output(data, { json: true });
       return;
     }
 
@@ -1207,7 +1279,7 @@ export class OutputFormatter {
     const columns: { label: string; format: (item: any) => string }[] = [
       {
         label: 'ID',
-        format: (item) => chalk.white.dim(item.id ?? '—'),
+        format: (item) => OutputFormatter.formatShortId(item.id),
       },
       {
         label: 'Amount',
@@ -1270,14 +1342,12 @@ export class OutputFormatter {
    * Used by payment get, mark-paid, refund, auto-charge.
    */
   static outputPaymentDetail(data: any, options: OutputOptions = {}) {
-    const format = options.format || 'pretty';
-
-    if (format === 'json') {
-      OutputFormatter.output(data, { format: 'json' });
+    if (options.json) {
+      OutputFormatter.output(data, { json: true });
       return;
     }
 
-    if (format === 'table') {
+    if (options.table) {
       this.outputPaymentTable({ data: [data] }, options);
       return;
     }
@@ -1317,10 +1387,10 @@ export class OutputFormatter {
 
     // ── Dates ───────────────────────────────────────────────
     if (p.scheduled_on) {
-      line('Scheduled', chalk.blue(p.scheduled_on.slice(0, 10)));
+      line('Scheduled', chalk.blue(this.formatDateTime(p.scheduled_on)));
     }
     if (p.payed_at) {
-      line('Paid At', chalk.blue(p.payed_at.slice(0, 10)));
+      line('Paid At', chalk.blue(this.formatDateTime(p.payed_at)));
     }
     sep();
 
@@ -1333,7 +1403,7 @@ export class OutputFormatter {
         line('Refund Note', chalk.red(p.refund_note));
       }
       if (p.refunded_at) {
-        line('Refunded At', chalk.red(p.refunded_at.slice(0, 10)));
+        line('Refunded At', chalk.red(this.formatDateTime(p.refunded_at)));
       }
     }
 
@@ -1473,65 +1543,135 @@ export class OutputFormatter {
   }
 
   static error(message: string, error?: any) {
-    console.error(chalk.red('✗'), message);
+    console.error(chalk.red.bold('\n✖ Error: ') + chalk.red(message));
 
     if (!error) {
+      console.error(chalk.gray(`\nUse 'streampay --help' for available commands.`));
+      console.error();
       return;
     }
 
-    // Case 1 – Axios interceptor shape: { status, message (raw response.data), error }
-    // The interceptor sets `message` to the full response body which may contain
-    // the StreamPay API error envelope: { error: { code, message, additional_info } }
-    const apiBody = this.extractApiError(error);
+    // Case 1 – StreamApiError from client.ts interceptor
+    // Has: status, code, message, additionalInfo
+    if (error.status !== undefined && error.code !== undefined) {
+      // Network error (status 0)
+      if (error.status === 0) {
+        console.error(chalk.yellow('\nReason: ') + 'Network error - unable to connect to API');
+        console.error(chalk.gray('\nPlease check:'));
+        console.error(chalk.gray('  • Your internet connection'));
+        console.error(chalk.gray('  • The API base URL is correct'));
+        console.error(chalk.gray('  • The API server is reachable'));
+      } else {
+        // API error with status code
+        console.error(chalk.yellow('\nCode: ') + chalk.white(error.code));
 
-    if (apiBody) {
-      if (apiBody.code) {
-        console.error(chalk.red('  Error:'), apiBody.code);
+        if (error.message) {
+          console.error(chalk.yellow('Message: ') + chalk.white(error.message));
+        }
+
+        // Handle validation errors (422) with detail array
+        if (error.additionalInfo) {
+          if (Array.isArray(error.additionalInfo) && error.additionalInfo.length > 0) {
+            console.error(chalk.yellow('\nValidation Errors:'));
+            error.additionalInfo.forEach((detail: any) => {
+              const field = detail.loc ? detail.loc.join('.') : 'unknown';
+              const msg = detail.msg || 'Invalid value';
+              const type = detail.type ? chalk.gray(` (${detail.type})`) : '';
+              console.error(chalk.gray('  • ') + chalk.cyan(field) + ': ' + chalk.white(msg) + type);
+            });
+          } else if (error.additionalInfo.detail && Array.isArray(error.additionalInfo.detail)) {
+            console.error(chalk.yellow('\nValidation Errors:'));
+            error.additionalInfo.detail.forEach((detail: any) => {
+              const field = detail.loc ? detail.loc.join('.') : 'unknown';
+              const msg = detail.msg || 'Invalid value';
+              const type = detail.type ? chalk.gray(` (${detail.type})`) : '';
+              console.error(chalk.gray('  • ') + chalk.cyan(field) + ': ' + chalk.white(msg) + type);
+            });
+          } else if (typeof error.additionalInfo === 'object' && Object.keys(error.additionalInfo).length > 0) {
+            console.error(chalk.yellow('\nDetails:'));
+            this.printErrorDetails(error.additionalInfo, 1);
+          }
+        }
+
+        // Show HTTP status for context
+        if (error.status) {
+          console.error(chalk.gray(`\nHTTP Status: ${error.status}`));
+        }
       }
-      if (apiBody.message) {
-        console.error(chalk.red('  Message:'), apiBody.message);
+    } else {
+      // Case 2 – Try to extract API error from various shapes
+      const apiBody = this.extractApiError(error);
+
+      if (apiBody) {
+        if (apiBody.code) {
+          console.error(chalk.yellow('\nCode: ') + chalk.white(apiBody.code));
+        }
+        if (apiBody.message) {
+          console.error(chalk.yellow('Message: ') + chalk.white(apiBody.message));
+        }
+        if (apiBody.additional_info) {
+          if (typeof apiBody.additional_info === 'object') {
+            console.error(chalk.yellow('\nDetails:'));
+            this.printErrorDetails(apiBody.additional_info, 1);
+          } else {
+            console.error(chalk.yellow('\nDetails: ') + chalk.white(String(apiBody.additional_info)));
+          }
+        }
+        const status = error.status || error.statusCode;
+        if (status) {
+          console.error(chalk.gray(`\nHTTP Status: ${status}`));
+        }
+      } else if (error instanceof Error) {
+        // Case 3 – Plain Error object
+        console.error(chalk.yellow('\nReason: ') + chalk.white(error.message));
+      } else if (typeof error === 'object' && error !== null) {
+        // Case 4 – Object with message/status
+        if (error.message) {
+          const msg = typeof error.message === 'string'
+            ? error.message
+            : JSON.stringify(error.message, null, 2);
+          console.error(chalk.yellow('\nReason: ') + chalk.white(msg));
+        }
+        if (error.status) {
+          console.error(chalk.gray(`\nHTTP Status: ${error.status}`));
+        }
+      } else if (typeof error === 'string') {
+        // Case 5 – String
+        console.error(chalk.yellow('\nReason: ') + chalk.white(error));
+      } else {
+        // Case 6 – Unknown
+        console.error(chalk.yellow('\nReason: ') + chalk.white(String(error)));
       }
-      if (apiBody.additional_info) {
-        const info = typeof apiBody.additional_info === 'string'
-          ? apiBody.additional_info
-          : JSON.stringify(apiBody.additional_info, null, 2);
-        console.error(chalk.red('  Details:'), info);
-      }
-      const status = error.status || error.statusCode;
-      if (status) {
-        console.error(chalk.red('  Status:'), status);
-      }
-      return;
     }
 
-    // Case 2 – Plain Error object (or subclass)
-    if (error instanceof Error) {
-      console.error(chalk.red('  Error:'), error.message);
-      return;
-    }
+    console.error(chalk.gray(`\nUse 'streampay --help' for available commands.`));
+    console.error();
+  }
 
-    // Case 3 – Object with message/status but no API envelope
-    if (typeof error === 'object' && error !== null) {
-      if (error.message) {
-        const msg = typeof error.message === 'string'
-          ? error.message
-          : JSON.stringify(error.message, null, 2);
-        console.error(chalk.red('  Error:'), msg);
+  private static printErrorDetails(obj: any, indent: number) {
+    const spaces = '  '.repeat(indent);
+    for (const [key, value] of Object.entries(obj)) {
+      if (value === null || value === undefined) {
+        console.error(chalk.gray(`${spaces}${key}: —`));
+      } else if (typeof value === 'object' && !Array.isArray(value)) {
+        console.error(chalk.gray(`${spaces}${key}:`));
+        this.printErrorDetails(value, indent + 1);
+      } else if (Array.isArray(value)) {
+        if (value.length === 0) {
+          console.error(chalk.gray(`${spaces}${key}: []`));
+        } else if (typeof value[0] === 'object') {
+          console.error(chalk.gray(`${spaces}${key}:`));
+          value.forEach((item, i) => {
+            console.error(chalk.gray(`${spaces}  [${i}]:`));
+            this.printErrorDetails(item, indent + 2);
+          });
+        } else {
+          console.error(chalk.gray(`${spaces}${key}: `) + chalk.white(value.join(', ')));
+        }
+      } else {
+        console.error(chalk.gray(`${spaces}${key}: `) + chalk.white(String(value)));
       }
-      if (error.status) {
-        console.error(chalk.red('  Status:'), error.status);
-      }
-      return;
     }
-
-    // Case 4 – String
-    if (typeof error === 'string') {
-      console.error(chalk.red('  Error:'), error);
-      return;
-    }
-
-    // Case 5 – Unknown
-    console.error(chalk.red('  Error:'), String(error));
   }
 
   static warning(message: string) {
